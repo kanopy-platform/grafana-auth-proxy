@@ -1,9 +1,6 @@
-#!/bin/bash
+module github.com/kanopy-platform/grafana-auth-proxy
 
-cat <<EOF > "${GIT_ROOT}/go.mod"
-module ${GO_MODULE}
-
-go ${GO_VERSION}
+go 1.16
 
 require (
 	github.com/sirupsen/logrus v1.8.1
@@ -11,4 +8,3 @@ require (
 	github.com/spf13/viper v1.8.1
 	github.com/stretchr/testify v1.7.0
 )
-EOF

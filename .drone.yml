@@ -1,6 +1,3 @@
-#!/bin/bash
-
-cat <<EOF > "${GIT_ROOT}/.drone.yml"
 ---
 kind: pipeline
 type: kubernetes
@@ -10,7 +7,7 @@ trigger:
   branch: [main]
 
 workspace:
-  path: /go/src/github.com/\${DRONE_REPO}
+  path: /go/src/github.com/${DRONE_REPO}
 
 volumes:
   - name: cache
@@ -18,7 +15,7 @@ volumes:
 
 steps:
   - name: test
-    image: ${GOLANGCI_IMAGE}
+    image: golangci/golangci-lint:v1.38.0-alpine
     volumes:
       - name: cache
         path: /go
@@ -45,9 +42,9 @@ steps:
         path: /go
     settings:
       create_repository: true
-      repo: \${DRONE_REPO_NAME}
+      repo: ${DRONE_REPO_NAME}
       tags:
-        - git-\${DRONE_COMMIT_SHA:0:7}
+        - git-${DRONE_COMMIT_SHA:0:7}
         - latest
       access_key:
         from_secret: ecr_access_key
@@ -63,14 +60,13 @@ steps:
       - name: cache
         path: /go
     settings:
-      repo: \${DRONE_REPO_NAME}
+      repo: ${DRONE_REPO_NAME}
       tags:
-        - git-\${DRONE_COMMIT_SHA:0:7}
-        - \${DRONE_TAG}
+        - git-${DRONE_COMMIT_SHA:0:7}
+        - ${DRONE_TAG}
       access_key:
         from_secret: ecr_access_key
       secret_key:
         from_secret: ecr_secret_key
     when:
       event: [tag]
-EOF

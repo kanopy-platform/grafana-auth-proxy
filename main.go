@@ -1,10 +1,7 @@
-#!/bin/bash
-
-cat <<EOF > "${GIT_ROOT}/main.go"
 package main
 
 import (
-	"${GO_MODULE}/internal/cli"
+	"github.com/kanopy-platform/grafana-auth-proxy/internal/cli"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -13,4 +10,3 @@ func main() {
 		log.Fatalln(err)
 	}
 }
-EOF

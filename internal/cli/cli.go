@@ -1,13 +1,10 @@
-#!/bin/bash
-
-cat <<EOF > "${GIT_ROOT}/internal/cli/cli.go"
 package cli
 
 import (
 	"net/http"
 	"strings"
 
-	"${GO_MODULE}/internal/server"
+	"github.com/kanopy-platform/grafana-auth-proxy/internal/server"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -19,13 +16,13 @@ func NewRootCommand() *cobra.Command {
 	root := &RootCommand{}
 
 	cmd := &cobra.Command{
-		Use:               "${CMD_NAME}",
+		Use:               "grafana-auth-proxy",
 		PersistentPreRunE: root.persistentPreRunE,
 		RunE:              root.runE,
 	}
 
 	cmd.PersistentFlags().String("log-level", "info", "Configure log level")
-	cmd.PersistentFlags().String("listen-address", ":${DEFAULT_APP_PORT}", "Server listen address")
+	cmd.PersistentFlags().String("listen-address", ":8080", "Server listen address")
 
 	return cmd
 }
@@ -58,4 +55,3 @@ func (c *RootCommand) runE(cmd *cobra.Command, args []string) error {
 
 	return http.ListenAndServe(addr, server.New())
 }
-EOF
