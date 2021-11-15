@@ -86,11 +86,12 @@ func (c *Client) UpsertOrgUser(OrgId int64, user gapi.User, role string) error {
 			return err
 		}
 
-		uid, err := c.CreateUser(gapi.User{
-			Login:    user.Login,
-			Email:    user.Email,
-			Password: sstring,
-		})
+		// The Grafana API requires a password for user creation
+		if user.Password == "" {
+			user.Password = sstring
+		}
+
+		uid, err := c.CreateUser(user)
 		if err != nil {
 			log.Error(err)
 			return err
