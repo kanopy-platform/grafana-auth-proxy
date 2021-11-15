@@ -68,15 +68,16 @@ func (s *Server) handleRoot() http.HandlerFunc {
 		validUserGroups := config.UserGroupsInConfig(claims.Groups, s.groups)
 		log.Debugf("valid user groups for user %s: %v", claims.Subject, validUserGroups)
 
+		// Creat gapi.User for lookup purposes
+		orgUser := gapi.User{
+			Login: claims.Subject,
+		}
+
 		if len(validUserGroups) > 0 {
 			for _, group := range validUserGroups {
 				data := s.groups[group]
 
 				for _, org := range data.Orgs {
-					orgUser := gapi.User{
-						Login: claims.Subject,
-					}
-
 					err = s.grafanaClient.UpsertOrgUser(org.OrgId, orgUser, org.Role)
 					if err != nil {
 						logAndError(w, http.StatusUnauthorized, err, "error upserting user")
