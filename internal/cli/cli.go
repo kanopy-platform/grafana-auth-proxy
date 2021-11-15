@@ -117,11 +117,12 @@ func (c *RootCommand) runE(cmd *cobra.Command, args []string) error {
 	}
 	opts = append(opts, server.WithGrafanaClient(grafanaClient))
 
-	groups, err := config.ParseGroups()
-	if err != nil {
+	groups := config.Groups{}
+	if err := viper.UnmarshalKey("groups", &groups); err != nil {
 		log.Error("error parsing groups settings in config, ", err)
 		return err
 	}
+
 	opts = append(opts, server.WithConfigGroups(groups))
 	log.Debugf("groups configuration map: %v", groups)
 
