@@ -73,11 +73,19 @@ func (s *Server) handleRoot() http.HandlerFunc {
 			Login: claims.Subject,
 		}
 
+		if claims.Email != "" {
+			orgUser.Email = claims.Email
+		}
+
 		if len(validUserGroups) > 0 {
 			for _, group := range validUserGroups {
 				data := s.groups[group]
 
 				for _, org := range data.Orgs {
+					if org.GrafanaAdmin {
+						orgUser.IsAdmin = true
+					}
+
 					err = s.grafanaClient.UpsertOrgUser(org.OrgId, orgUser, org.Role)
 					if err != nil {
 						logAndError(w, http.StatusUnauthorized, err, "error upserting user")

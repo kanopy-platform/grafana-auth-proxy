@@ -7,8 +7,9 @@ type Group struct {
 type Groups map[string]Group
 
 type Org struct {
-	OrgId int64  `json:"orgId"`
-	Role  string `json:"role"`
+	OrgId        int64  `json:"orgId"`
+	Role         string `json:"role"`
+	GrafanaAdmin bool   `json:"grafanaAdmin"`
 }
 
 // UserGroupsInConfig matches the user groups (from claims) that are
