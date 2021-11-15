@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	gapi "github.com/grafana/grafana-api-golang-client"
+	"github.com/kanopy-platform/k8s-auth-portal/pkg/random"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -77,10 +78,18 @@ func (c *Client) UpsertOrgUser(OrgId int64, user gapi.User, role string) error {
 
 	if foundUser == nil {
 		log.Infof("no user with login %s found, creating new one", user.Login)
+
+		// Generate new random password
+		sstring, err := random.SecureString(12)
+		if err != nil {
+			log.Errorf("error generating random password: %v", err)
+			return err
+		}
+
 		uid, err := c.CreateUser(gapi.User{
 			Login:    user.Login,
 			Email:    user.Email,
-			Password: "abc123",
+			Password: sstring,
 		})
 		if err != nil {
 			log.Error(err)

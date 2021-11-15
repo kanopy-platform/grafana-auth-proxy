@@ -4,6 +4,7 @@ go 1.16
 
 require (
 	github.com/grafana/grafana-api-golang-client v0.0.0-20211005011003-c69abe946fa6
+	github.com/kanopy-platform/k8s-auth-portal v0.1.0
 	github.com/sirupsen/logrus v1.8.1
 	github.com/spf13/cobra v1.2.1
 	github.com/spf13/viper v1.8.1
