@@ -31,6 +31,10 @@ func (c *mockGAPIClient) AddOrgUser(OrgID int64, login string, role string) erro
 	return nil
 }
 
+func (c *mockGAPIClient) UpdateOrgUser(orgID, userID int64, role string) error {
+	return nil
+}
+
 // MockClient returns a Client using a mocked GAPIClient underneat
 func NewMockClient(user gapi.User, userInOrg *mockUserInOrg) *Client {
 	return &Client{

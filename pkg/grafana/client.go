@@ -17,6 +17,7 @@ type GAPIClient interface {
 	UserByEmail(email string) (user gapi.User, err error)
 	CreateUser(user gapi.User) (int64, error)
 	AddOrgUser(orgID int64, user, role string) error
+	UpdateOrgUser(orgID, userID int64, role string) error
 }
 
 func NewClient(baseURL *url.URL, cfg gapi.Config) (*Client, error) {
@@ -36,12 +37,14 @@ func NewClient(baseURL *url.URL, cfg gapi.Config) (*Client, error) {
 func (c *Client) LookupUser(loginOrEmail string) (*gapi.User, error) {
 	user, err := c.client.UserByEmail(loginOrEmail)
 	if err != nil {
-		return nil, err
+		if !strings.Contains(err.Error(), "User not found") {
+			return nil, err
+		}
 	}
 
 	// gapi returns an empty struct
 	if user.Login == "" {
-		return nil, err
+		return nil, nil
 	}
 
 	return &user, nil
@@ -82,31 +85,28 @@ func (c *Client) AddOrgUser(OrgID int64, login string, role string) error {
 	return nil
 }
 
-// UpsertOrgUser adds a user to an Organization, creating it, if it doesn't exists
-func (c *Client) UpsertOrgUser(OrgId int64, user gapi.User, role string) error {
-	foundUser, err := c.LookupUser(user.Login)
-	if err != nil {
-		if !strings.Contains(err.Error(), "User not found") {
-			return err
-		}
-	}
+// UpsertOrgUser adds a user to an Organization if not present or
+// updates the user role if already a member.
+func (c *Client) UpsertOrgUser(orgID int64, user gapi.User, role string) error {
 
-	if foundUser == nil {
-		log.Infof("no user with login %s found, creating new one", user.Login)
+	var isOrgMember bool
 
-		uid, err := c.CreateUser(user)
-		if err != nil {
-			log.Error(err)
-			return err
-		}
-
-		log.Infof("new user %s created with id %d", user.Login, uid)
-	}
-
-	err = c.AddOrgUser(OrgId, user.Login, role)
+	err := c.AddOrgUser(orgID, user.Login, role)
 	if err != nil {
 		if !strings.Contains(err.Error(), "User is already member of this organization") {
 			log.Error(err)
+			return err
+		} else {
+			isOrgMember = true
+		}
+	}
+
+	if isOrgMember {
+		// Update user if it's a member in case roles changed in config
+		log.Infof("updating user, %s", user.Login)
+		log.Debugf("user object, %v", user)
+		err = c.client.UpdateOrgUser(orgID, user.ID, role)
+		if err != nil {
 			return err
 		}
 	}

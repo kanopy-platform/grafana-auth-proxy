@@ -77,6 +77,26 @@ func (s *Server) handleRoot() http.HandlerFunc {
 			orgUser.Email = claims.Email
 		}
 
+		foundUser, err := s.grafanaClient.LookupUser(claims.Subject)
+		if err != nil {
+			logAndError(w, http.StatusUnauthorized, err, "error looking for user")
+			return
+		}
+
+		if foundUser == nil {
+			log.Infof("no user with login %s found, creating new one", orgUser.Login)
+			uid, err := s.grafanaClient.CreateUser(orgUser)
+			if err != nil {
+				logAndError(w, http.StatusUnauthorized, err, "error creating new user")
+				return
+			}
+
+			// Update ID on orgUser
+			orgUser.ID = uid
+		} else {
+			orgUser.ID = foundUser.ID
+		}
+
 		if len(validUserGroups) > 0 {
 			for _, group := range validUserGroups {
 				data := s.groups[group]
