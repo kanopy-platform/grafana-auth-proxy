@@ -86,7 +86,7 @@ func (s *Server) handleRoot() http.HandlerFunc {
 						orgUser.IsAdmin = true
 					}
 
-					err = s.grafanaClient.UpsertOrgUser(org.OrgId, orgUser, org.Role)
+					err = s.grafanaClient.UpsertOrgUser(org.ID, orgUser, org.Role)
 					if err != nil {
 						logAndError(w, http.StatusUnauthorized, err, "error upserting user")
 						return

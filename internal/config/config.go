@@ -7,7 +7,7 @@ type Group struct {
 type Groups map[string]Group
 
 type Org struct {
-	OrgId        int64  `json:"orgId"`
+	ID           int64  `json:"id"`
 	Role         string `json:"role"`
 	GrafanaAdmin bool   `json:"grafanaAdmin"`
 }

@@ -20,8 +20,8 @@ func TestHandleRoot(t *testing.T) {
 		"first": {
 			Orgs: []config.Org{
 				{
-					OrgId: 1,
-					Role:  "Viewer",
+					ID:   1,
+					Role: "Viewer",
 				},
 			},
 		},
