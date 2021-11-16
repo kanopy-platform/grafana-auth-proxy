@@ -49,6 +49,21 @@ func (c *Client) LookupUser(loginOrEmail string) (*gapi.User, error) {
 
 // CreateUser adds a new global user to Grafana
 func (c *Client) CreateUser(user gapi.User) (int64, error) {
+	var uid int64
+
+	// The Grafana API requires a password for user creation
+	if user.Password == "" {
+		// Generate new random password
+		sstring, err := random.SecureString(12)
+		if err != nil {
+			log.Errorf("error generating random password: %v", err)
+
+			return uid, err
+		}
+
+		user.Password = sstring
+	}
+
 	uid, err := c.client.CreateUser(user)
 	if err != nil {
 		return uid, err
@@ -79,23 +94,12 @@ func (c *Client) UpsertOrgUser(OrgId int64, user gapi.User, role string) error {
 	if foundUser == nil {
 		log.Infof("no user with login %s found, creating new one", user.Login)
 
-		// Generate new random password
-		sstring, err := random.SecureString(12)
-		if err != nil {
-			log.Errorf("error generating random password: %v", err)
-			return err
-		}
-
-		// The Grafana API requires a password for user creation
-		if user.Password == "" {
-			user.Password = sstring
-		}
-
 		uid, err := c.CreateUser(user)
 		if err != nil {
 			log.Error(err)
 			return err
 		}
+
 		log.Infof("new user %s created with id %d", user.Login, uid)
 	}
 
