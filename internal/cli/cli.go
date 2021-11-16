@@ -44,7 +44,7 @@ func (c *RootCommand) persistentPreRunE(cmd *cobra.Command, args []string) error
 	viper.SetConfigName("config")
 	viper.AddConfigPath(".")
 	viper.AddConfigPath("/etc/grafana-auth-proxy/")
-	viper.WatchConfig()
+	// viper.WatchConfig()
 
 	err := viper.ReadInConfig()
 	if err != nil {
