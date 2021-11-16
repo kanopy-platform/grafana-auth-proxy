@@ -1,12 +1,18 @@
 package grafana
 
 import (
+	"errors"
 	"net/url"
 	"strings"
 
 	gapi "github.com/grafana/grafana-api-golang-client"
+	"github.com/grafana/grafana/pkg/models"
 	"github.com/kanopy-platform/k8s-auth-portal/pkg/random"
 	log "github.com/sirupsen/logrus"
+)
+
+var (
+	ErrRoleNotValid = errors.New("role is not valid")
 )
 
 type Client struct {
@@ -112,4 +118,20 @@ func (c *Client) UpsertOrgUser(orgID int64, user gapi.User, role string) error {
 	}
 
 	return nil
+}
+
+func IsRoleAssignable(currentRole models.RoleType, incomingRole models.RoleType) bool {
+	// role hierarchy
+	roleHierarchy := map[models.RoleType]int{
+		models.ROLE_VIEWER: 0,
+		models.ROLE_EDITOR: 1,
+		models.ROLE_ADMIN:  2,
+	}
+
+	// If the incoming role is less than ( less privilege ) than the currently assigned role ( more privilege ), skip this mapping.
+	if currentRole != "" && roleHierarchy[models.RoleType(incomingRole)] < roleHierarchy[currentRole] {
+		return false
+	}
+
+	return true
 }

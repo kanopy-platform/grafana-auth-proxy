@@ -7,6 +7,7 @@ import (
 	"net/url"
 
 	gapi "github.com/grafana/grafana-api-golang-client"
+	"github.com/grafana/grafana/pkg/models"
 	"github.com/kanopy-platform/grafana-auth-proxy/internal/config"
 	"github.com/kanopy-platform/grafana-auth-proxy/internal/jwt"
 	"github.com/kanopy-platform/grafana-auth-proxy/pkg/grafana"
@@ -73,6 +74,9 @@ func (s *Server) handleRoot() http.HandlerFunc {
 			Login: claims.Subject,
 		}
 
+		// Mapping of role per org
+		userOrgsRole := make(map[int64]models.RoleType)
+
 		if claims.Email != "" {
 			orgUser.Email = claims.Email
 		}
@@ -99,19 +103,28 @@ func (s *Server) handleRoot() http.HandlerFunc {
 
 		if len(validUserGroups) > 0 {
 			for _, group := range validUserGroups {
-				data := s.groups[group]
+				if groupConfig, ok := s.groups[group]; ok {
+					for _, org := range groupConfig.Orgs {
+						// Check if the users has a more permissive role and apply that instead
+						if !grafana.IsRoleAssignable(userOrgsRole[org.ID], models.RoleType(org.Role)) {
+							continue
+						}
 
-				for _, org := range data.Orgs {
-					if org.GrafanaAdmin {
-						orgUser.IsAdmin = true
-					}
+						userOrgsRole[org.ID] = models.RoleType(org.Role)
 
-					err = s.grafanaClient.UpsertOrgUser(org.ID, orgUser, org.Role)
-					if err != nil {
-						logAndError(w, http.StatusUnauthorized, err, "error upserting user")
-						return
+						if org.GrafanaAdmin != nil && *org.GrafanaAdmin {
+							orgUser.IsAdmin = true
+						}
 					}
 				}
+			}
+		}
+
+		for orgID, role := range userOrgsRole {
+			err = s.grafanaClient.UpsertOrgUser(orgID, orgUser, string(role))
+			if err != nil {
+				logAndError(w, http.StatusUnauthorized, err, "error upserting user")
+				return
 			}
 		}
 

@@ -9,7 +9,7 @@ type Groups map[string]Group
 type Org struct {
 	ID           int64  `json:"id"`
 	Role         string `json:"role"`
-	GrafanaAdmin bool   `json:"grafanaAdmin"`
+	GrafanaAdmin *bool  `json:"grafanaAdmin"`
 }
 
 // UserGroupsInConfig matches the user groups (from claims) that are
