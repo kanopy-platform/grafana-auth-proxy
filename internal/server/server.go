@@ -14,17 +14,18 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-const (
-	grafanaAuthHeader = "X-WEBAUTH-USER"
-)
+type GrafanaResponseHeaders struct {
+	User string
+}
 
 type Server struct {
-	router          *http.ServeMux
-	cookieName      string
-	groups          config.Groups
-	grafanaProxyUrl *url.URL
-	grafanaClient   *grafana.Client
-	skipTLSVerify   bool
+	router                 *http.ServeMux
+	cookieName             string
+	groups                 config.Groups
+	grafanaProxyUrl        *url.URL
+	grafanaClient          *grafana.Client
+	grafanaResponseHeaders GrafanaResponseHeaders
+	skipTLSVerify          bool
 }
 
 type ServerFuncOpt func(*Server) error
@@ -129,7 +130,7 @@ func (s *Server) handleRoot() http.HandlerFunc {
 		}
 
 		r.Header.Set("X-Forwarded-Host", r.Host)
-		r.Header.Set(grafanaAuthHeader, claims.Subject)
+		r.Header.Set(s.grafanaResponseHeaders.User, claims.Subject)
 
 		// Create the reverse proxy
 		proxy := httputil.NewSingleHostReverseProxy(s.grafanaProxyUrl)

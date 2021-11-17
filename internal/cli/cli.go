@@ -31,6 +31,7 @@ func NewRootCommand() *cobra.Command {
 	cmd.PersistentFlags().Bool("tls-skip-verify", false, "Skip TLS certificate verification")
 	cmd.PersistentFlags().String("grafana-proxy-url", "", "Grafana url to proxy to")
 	cmd.PersistentFlags().String("grafana-client-url", "", "Grafana url to connect with client")
+	cmd.PersistentFlags().String("grafana-user-header", "X-WEBAUTH-USER", "Header to containing the user to authenticate")
 	cmd.PersistentFlags().String("cookie-name", "", "Cookie name with jwt token. If set will take precedence over auth header")
 	cmd.PersistentFlags().String("admin-user", "admin", "Admin user")
 	cmd.PersistentFlags().String("admin-password", "", "Admin password")
@@ -74,8 +75,15 @@ func (c *RootCommand) persistentPreRunE(cmd *cobra.Command, args []string) error
 }
 
 func defaultServerOptions() []server.ServerFuncOpt {
+	userHeader := viper.GetString("grafana-user-header")
+
+	responseHeader := server.GrafanaResponseHeaders{
+		User: userHeader,
+	}
+
 	opts := []server.ServerFuncOpt{
 		server.WithCookieName(viper.GetString("cookie-name")),
+		server.WithGrafanaResponseHeaders(responseHeader),
 	}
 
 	return opts

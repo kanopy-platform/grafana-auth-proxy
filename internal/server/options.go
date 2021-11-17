@@ -41,3 +41,10 @@ func SkipTLSVerify() ServerFuncOpt {
 		return nil
 	}
 }
+
+func WithGrafanaResponseHeaders(headers GrafanaResponseHeaders) ServerFuncOpt {
+	return func(s *Server) error {
+		s.grafanaResponseHeaders = headers
+		return nil
+	}
+}
