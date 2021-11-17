@@ -29,6 +29,10 @@ type GAPIClient interface {
 func NewClient(baseURL *url.URL, cfg gapi.Config) (*Client, error) {
 	newClient := &Client{}
 
+	if baseURL == nil {
+		return nil, errors.New("url is nil")
+	}
+
 	client, err := gapi.New(baseURL.String(), cfg)
 	if err != nil {
 		return nil, err
@@ -40,20 +44,15 @@ func NewClient(baseURL *url.URL, cfg gapi.Config) (*Client, error) {
 }
 
 // LookupUser search for a user by Login or Email and returns it
-func (c *Client) LookupUser(loginOrEmail string) (*gapi.User, error) {
+func (c *Client) LookupUser(loginOrEmail string) (gapi.User, error) {
 	user, err := c.client.UserByEmail(loginOrEmail)
 	if err != nil {
 		if !strings.Contains(err.Error(), "User not found") {
-			return nil, err
+			return user, err
 		}
 	}
 
-	// gapi returns an empty struct
-	if user.Login == "" {
-		return nil, nil
-	}
-
-	return &user, nil
+	return user, nil
 }
 
 // CreateUser adds a new global user to Grafana
@@ -63,14 +62,14 @@ func (c *Client) CreateUser(user gapi.User) (int64, error) {
 	// The Grafana API requires a password for user creation
 	if user.Password == "" {
 		// Generate new random password
-		sstring, err := random.SecureString(12)
+		passwd, err := random.SecureString(12)
 		if err != nil {
 			log.Errorf("error generating random password: %v", err)
 
 			return uid, err
 		}
 
-		user.Password = sstring
+		user.Password = passwd
 	}
 
 	uid, err := c.client.CreateUser(user)
@@ -100,17 +99,14 @@ func (c *Client) UpsertOrgUser(orgID int64, user gapi.User, role string) error {
 	err := c.AddOrgUser(orgID, user.Login, role)
 	if err != nil {
 		if !strings.Contains(err.Error(), "User is already member of this organization") {
-			log.Error(err)
 			return err
 		} else {
 			isOrgMember = true
 		}
 	}
 
+	// Always update user even if it's a member as the roles might have changed.
 	if isOrgMember {
-		// Update user if it's a member in case roles changed in config
-		log.Infof("updating user, %s", user.Login)
-		log.Debugf("user object, %v", user)
 		err = c.client.UpdateOrgUser(orgID, user.ID, role)
 		if err != nil {
 			return err

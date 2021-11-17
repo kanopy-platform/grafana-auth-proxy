@@ -6,7 +6,6 @@ import (
 	"net/http/httputil"
 	"net/url"
 
-	gapi "github.com/grafana/grafana-api-golang-client"
 	"github.com/grafana/grafana/pkg/models"
 	"github.com/kanopy-platform/grafana-auth-proxy/internal/config"
 	"github.com/kanopy-platform/grafana-auth-proxy/internal/jwt"
@@ -62,61 +61,70 @@ func (s *Server) handleRoot() http.HandlerFunc {
 			return
 		}
 
-		log.Infof("attempting to log in user %s", claims.Subject)
-		log.Debugf("claim groups for user %s: %v", claims.Subject, claims.Groups)
+		if claims.Subject == "" {
+			logAndError(w, http.StatusUnauthorized, err, "sub claim is empty")
+			return
+		}
+
+		if len(claims.Groups) < 1 {
+			logAndError(w, http.StatusUnauthorized, err, "groups claim is empty")
+			return
+		}
+		// Make the Subject claim the value used for login
+		login := claims.Subject
+
+		log.Infof("user %s is attempting to log in", login)
+		log.Debugf("claim groups for user %s: %v", login, claims.Groups)
 
 		// validUserGroups represents the intersection of user groups from claim with the group
 		// mapping in configuration
-		validUserGroups := config.UserGroupsInConfig(claims.Groups, s.groups)
-		log.Debugf("valid user groups for user %s: %v", claims.Subject, validUserGroups)
-
-		// Creat gapi.User for lookup purposes
-		orgUser := gapi.User{
-			Login: claims.Subject,
+		validUserGroups := config.ValidUserGroups(claims.Groups, s.groups)
+		log.Debugf("valid user groups for user %s: %v", login, validUserGroups)
+		if len(validUserGroups) == 0 {
+			logAndError(w, http.StatusUnauthorized, err, "no user groups matching configured mapping")
+			return
 		}
 
-		// Mapping of role per org
-		userOrgsRole := make(map[int64]models.RoleType)
-
-		if claims.Email != "" {
-			orgUser.Email = claims.Email
-		}
-
-		foundUser, err := s.grafanaClient.LookupUser(claims.Subject)
+		// lookup the user globally first as if it is not present it would need to
+		// be created
+		orgUser, err := s.grafanaClient.LookupUser(claims.Subject)
 		if err != nil {
 			logAndError(w, http.StatusUnauthorized, err, "error looking for user")
 			return
 		}
 
-		if foundUser == nil {
-			log.Infof("no user with login %s found, creating new one", orgUser.Login)
+		if claims.Email != "" {
+			orgUser.Email = claims.Email
+		}
+
+		// if the Login field in user is empty, it means that the user wasn't found
+		if orgUser.Login == "" {
+			log.Infof("no user with login %s found, creating new one", login)
+			orgUser.Login = login
+
 			uid, err := s.grafanaClient.CreateUser(orgUser)
 			if err != nil {
 				logAndError(w, http.StatusUnauthorized, err, "error creating new user")
 				return
 			}
 
-			// Update ID on orgUser
 			orgUser.ID = uid
-		} else {
-			orgUser.ID = foundUser.ID
 		}
 
-		if len(validUserGroups) > 0 {
-			for _, group := range validUserGroups {
-				if groupConfig, ok := s.groups[group]; ok {
-					for _, org := range groupConfig.Orgs {
-						// Check if the users has a more permissive role and apply that instead
-						if !grafana.IsRoleAssignable(userOrgsRole[org.ID], models.RoleType(org.Role)) {
-							continue
-						}
+		// Mapping of role per org
+		userOrgsRole := make(map[int64]models.RoleType)
 
-						userOrgsRole[org.ID] = models.RoleType(org.Role)
+		for _, groupConfig := range validUserGroups {
+			for _, org := range groupConfig.Orgs {
+				// Check if the users has a more permissive role and apply that instead
+				if !grafana.IsRoleAssignable(userOrgsRole[org.ID], models.RoleType(org.Role)) {
+					continue
+				}
 
-						if org.GrafanaAdmin != nil && *org.GrafanaAdmin {
-							orgUser.IsAdmin = true
-						}
-					}
+				userOrgsRole[org.ID] = models.RoleType(org.Role)
+
+				if org.GrafanaAdmin != nil && *org.GrafanaAdmin {
+					orgUser.IsAdmin = true
 				}
 			}
 		}
@@ -128,6 +136,8 @@ func (s *Server) handleRoot() http.HandlerFunc {
 				return
 			}
 		}
+
+		log.Infof("user %s is authorized to log in", login)
 
 		r.Header.Set("X-Forwarded-Host", r.Host)
 		r.Header.Set(s.grafanaResponseHeaders.User, claims.Subject)

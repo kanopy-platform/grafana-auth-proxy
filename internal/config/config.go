@@ -13,14 +13,15 @@ type Org struct {
 }
 
 // UserGroupsInConfig matches the user groups (from claims) that are
-// present in config
-func UserGroupsInConfig(userGroups []string, groups Groups) []string {
-	var matchedGroups []string
+// present in config and returns a filtered set of Groups
+func ValidUserGroups(userGroups []string, groups Groups) Groups {
+	finalGroups := make(map[string]Group)
+
 	for _, userGroup := range userGroups {
 		if _, ok := groups[userGroup]; ok {
-			matchedGroups = append(matchedGroups, userGroup)
+			finalGroups[userGroup] = groups[userGroup]
 		}
 	}
 
-	return matchedGroups
+	return finalGroups
 }
