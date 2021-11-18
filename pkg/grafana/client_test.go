@@ -66,3 +66,19 @@ func TestUpsertOrgUser(t *testing.T) {
 	err := client.UpsertOrgUser(1, user, "Editor")
 	assert.Nil(t, err)
 }
+
+func TestIsRoleAssignable(t *testing.T) {
+	// table test to  validate isRoleAssignable(currentRole, incomingRole)
+	assert.True(t, IsRoleAssignable("", models.ROLE_VIEWER))
+	assert.True(t, IsRoleAssignable(models.ROLE_VIEWER, models.ROLE_EDITOR))
+	assert.True(t, IsRoleAssignable(models.ROLE_VIEWER, models.ROLE_ADMIN))
+	assert.True(t, IsRoleAssignable(models.ROLE_EDITOR, models.ROLE_ADMIN))
+	assert.False(t, IsRoleAssignable(models.ROLE_ADMIN, models.ROLE_EDITOR))
+	assert.False(t, IsRoleAssignable(models.ROLE_ADMIN, models.ROLE_VIEWER))
+	assert.False(t, IsRoleAssignable(models.ROLE_EDITOR, models.ROLE_VIEWER))
+	assert.True(t, IsRoleAssignable(models.ROLE_VIEWER, models.ROLE_VIEWER))
+
+	roles := map[int64]models.RoleType{}
+	assert.True(t, IsRoleAssignable(roles[0], models.ROLE_VIEWER))
+
+}
