@@ -29,10 +29,9 @@ func NewRootCommand() *cobra.Command {
 	cmd.PersistentFlags().String("log-level", "info", "Configure log level")
 	cmd.PersistentFlags().String("listen-address", ":8080", "Server listen address")
 	cmd.PersistentFlags().Bool("tls-skip-verify", false, "Skip TLS certificate verification")
-	cmd.PersistentFlags().String("grafana-proxy-url", "", "Grafana url to proxy to")
-	cmd.PersistentFlags().String("grafana-client-url", "", "Grafana url to connect with client")
+	cmd.PersistentFlags().String("grafana-proxy-url", "http://grafana.example.com", "Grafana url to proxy to")
 	cmd.PersistentFlags().String("grafana-user-header", "X-WEBAUTH-USER", "Header to containing the user to authenticate")
-	cmd.PersistentFlags().String("cookie-name", "", "Cookie name with jwt token. If set will take precedence over auth header")
+	cmd.PersistentFlags().String("cookie-name", "auth_token", "Cookie name with jwt token. If set will take precedence over auth header")
 	cmd.PersistentFlags().String("admin-user", "admin", "Admin user")
 	cmd.PersistentFlags().String("admin-password", "", "Admin password")
 
@@ -40,7 +39,6 @@ func NewRootCommand() *cobra.Command {
 }
 
 func (c *RootCommand) persistentPreRunE(cmd *cobra.Command, args []string) error {
-
 	// Read from config
 	viper.SetConfigName("config")
 	viper.AddConfigPath(".")
@@ -75,50 +73,42 @@ func (c *RootCommand) persistentPreRunE(cmd *cobra.Command, args []string) error
 }
 
 func defaultServerOptions() []server.ServerFuncOpt {
-	userHeader := viper.GetString("grafana-user-header")
-
-	responseHeader := server.GrafanaResponseHeaders{
-		User: userHeader,
+	responseHeaders := server.GrafanaResponseHeaders{
+		User: viper.GetString("grafana-user-header"),
 	}
 
 	opts := []server.ServerFuncOpt{
 		server.WithCookieName(viper.GetString("cookie-name")),
-		server.WithGrafanaResponseHeaders(responseHeader),
+		server.WithGrafanaResponseHeaders(responseHeaders),
 	}
 
 	return opts
 }
 
 func (c *RootCommand) runE(cmd *cobra.Command, args []string) error {
-
 	addr := viper.GetString("listen-address")
 	log.Infof("listening on %s", addr)
 
 	opts := defaultServerOptions()
 
-	adminUser := viper.GetString("admin-user")
-	adminPassword := viper.GetString("admin-password")
-
-	grafanaProxyUrlRaw := viper.GetString("grafana-proxy-url")
-	grafanaProxyURL, err := url.Parse(grafanaProxyUrlRaw)
+	grafanaProxyURL, err := url.Parse(viper.GetString("grafana-proxy-url"))
 	if err != nil {
 		log.Error("grafana-proxy-url is not a proper url")
 		return err
 	}
 	opts = append(opts, server.WithGrafanaProxyURL(grafanaProxyURL))
 
-	grafanaClientUrlRaw := viper.GetString("grafana-client-url")
-	grafanaClientURL, err := url.Parse(grafanaClientUrlRaw)
-	if err != nil {
-		log.Error("grafana-client-url is not a proper url")
+	adminPassword := viper.GetString("admin-password")
+	if adminPassword == "" {
+		log.Error("admin-password is not set")
 		return err
 	}
 
 	grafanaConfig := gapi.Config{
-		BasicAuth: url.UserPassword(adminUser, adminPassword),
+		BasicAuth: url.UserPassword(viper.GetString("admin-user"), adminPassword),
 	}
 
-	grafanaClient, err := grafana.NewClient(grafanaClientURL, grafanaConfig)
+	grafanaClient, err := grafana.NewClient(grafanaProxyURL, grafanaConfig)
 	if err != nil {
 		log.Error("error creating Grafana client, ", err)
 		return err
