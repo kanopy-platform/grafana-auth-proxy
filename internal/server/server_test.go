@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	gapi "github.com/grafana/grafana-api-golang-client"
+	"github.com/grafana/grafana/pkg/models"
 	"github.com/kanopy-platform/grafana-auth-proxy/internal/config"
 	"github.com/kanopy-platform/grafana-auth-proxy/pkg/grafana"
 	"github.com/stretchr/testify/assert"
@@ -17,23 +18,28 @@ func TestHandleRoot(t *testing.T) {
 	t.Parallel()
 
 	groups := config.Groups{
-		"first": {
+		"foo": {
 			Orgs: []config.Org{
 				{
 					ID:   1,
-					Role: "Viewer",
+					Role: "Editor",
 				},
 			},
 		},
 	}
 
 	backendServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(200)
 		fmt.Fprintln(w, "this call was relayed by the reverse proxy")
 	}))
 	defer backendServer.Close()
 	backendURL, _ := url.Parse(backendServer.URL)
 
-	client, _ := grafana.NewClient(backendURL, gapi.Config{})
+	orgRoleMap := map[int64]models.RoleType{
+		1: models.ROLE_EDITOR,
+	}
+
+	client := grafana.NewMockClient(gapi.User{Login: "jhon"}, orgRoleMap)
 
 	req := httptest.NewRequest("GET", "/", nil)
 	req.Host = "http://grafana.example.com"
@@ -55,6 +61,9 @@ func TestHandleRoot(t *testing.T) {
 		WithCookieName("auth_token"),
 		WithConfigGroups(groups),
 		WithGrafanaClient(client),
+		WithGrafanaResponseHeaders(GrafanaResponseHeaders{
+			User: "X-WEBAUTH-USER",
+		}),
 	)
 	assert.NoError(t, err)
 
