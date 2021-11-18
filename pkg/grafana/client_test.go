@@ -1,10 +1,10 @@
 package grafana
 
 import (
-	"errors"
 	"testing"
 
 	gapi "github.com/grafana/grafana-api-golang-client"
+	"github.com/grafana/grafana/pkg/models"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -21,8 +21,9 @@ func TestLookupUser(t *testing.T) {
 
 	client := NewMockClient(user, nil)
 
-	_, err := client.LookupUser(user.Login)
+	foundUser, err := client.LookupUser(user.Login)
 	assert.Nil(t, err)
+	assert.Equal(t, user.Login, foundUser.Login)
 }
 
 func TestCreateUser(t *testing.T) {
@@ -38,28 +39,30 @@ func TestCreateUser(t *testing.T) {
 func TestAddOrgUser(t *testing.T) {
 	user := setupUser()
 
-	client := NewMockClient(user, &mockUserInOrg{member: false, responseError: nil})
+	orgRoleMap := map[int64]models.RoleType{
+		1: models.ROLE_EDITOR,
+	}
+	client := NewMockClient(user, orgRoleMap)
 
-	err := client.AddOrgUser(1, "foo", "Editor")
+	// test adding to new org
+	err := client.AddOrgUser(2, "foo", "Editor")
 	assert.NoError(t, err)
+
+	// test already a member
+	err = client.AddOrgUser(1, "foo", "Editor")
+	assert.Contains(t, err.Error(), "User is already member")
 }
 
 func TestUpsertOrgUser(t *testing.T) {
+	user := setupUser()
 
-	user := gapi.User{
-		ID:    1,
-		Email: "foo@example.com",
-		Login: "foo",
+	orgRoleMap := map[int64]models.RoleType{
+		1: models.ROLE_EDITOR,
 	}
 
-	client := NewMockClient(
-		user,
-		&mockUserInOrg{
-			member:        true,
-			responseError: errors.New(`status: 409, body: "User is already member of this organization"`),
-		},
-	)
+	client := NewMockClient(user, orgRoleMap)
 
-	err := client.UpsertOrgUser(3, user, "Editor")
+	// this should always succedd except for error when calling the rest api
+	err := client.UpsertOrgUser(1, user, "Editor")
 	assert.Nil(t, err)
 }
