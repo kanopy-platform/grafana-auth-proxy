@@ -70,7 +70,8 @@ func (s *Server) handleRoot() http.HandlerFunc {
 			logAndError(w, http.StatusUnauthorized, err, "groups claim is empty")
 			return
 		}
-		// Make the Subject claim the value used for login
+
+		// Make Subject claim the value used for login
 		login := claims.Subject
 
 		log.Infof("user %s is attempting to log in", login)
@@ -93,9 +94,8 @@ func (s *Server) handleRoot() http.HandlerFunc {
 			return
 		}
 
-		if claims.Email != "" {
-			orgUser.Email = claims.Email
-		}
+		// Assign the email from claim so it's always updated
+		orgUser.Email = claims.Email
 
 		// if the Login field in user is empty, it means that the user wasn't found
 		if orgUser.Login == "" {
@@ -123,7 +123,7 @@ func (s *Server) handleRoot() http.HandlerFunc {
 
 				userOrgsRole[org.ID] = models.RoleType(org.Role)
 
-				if org.GrafanaAdmin != nil && *org.GrafanaAdmin {
+				if org.GrafanaAdmin {
 					orgUser.IsAdmin = true
 				}
 			}
