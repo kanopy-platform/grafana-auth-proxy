@@ -115,6 +115,15 @@ func (s *Server) handleRoot() http.HandlerFunc {
 		userOrgsRole := make(map[int64]models.RoleType)
 
 		for _, groupConfig := range validUserGroups {
+			if groupConfig.GrafanaAdmin && !orgUser.IsAdmin {
+				log.Infof("assigning user %s as Grafana admin", login)
+				err := s.grafanaClient.UpdateUserPermissions(orgUser.ID, true)
+				if err != nil {
+					logAndError(w, http.StatusUnauthorized, err, "error assigning the user as Grafana admin")
+					return
+				}
+			}
+
 			for _, org := range groupConfig.Orgs {
 				// Check if the users has a more permissive role and apply that instead
 				if !grafana.IsRoleAssignable(userOrgsRole[org.ID], models.RoleType(org.Role)) {
@@ -122,10 +131,6 @@ func (s *Server) handleRoot() http.HandlerFunc {
 				}
 
 				userOrgsRole[org.ID] = models.RoleType(org.Role)
-
-				if org.GrafanaAdmin {
-					orgUser.IsAdmin = true
-				}
 			}
 		}
 

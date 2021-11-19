@@ -1,15 +1,15 @@
 package config
 
 type Group struct {
-	Orgs []Org `json:"orgs"`
+	GrafanaAdmin bool  `json:"grafanaAdmin,omitempty"`
+	Orgs         []Org `json:"orgs"`
 }
 
 type Groups map[string]Group
 
 type Org struct {
-	ID           int64  `json:"id"`
-	Role         string `json:"role"`
-	GrafanaAdmin bool   `json:"grafanaAdmin,omitempty"`
+	ID   int64  `json:"id"`
+	Role string `json:"role"`
 }
 
 // UserGroupsInConfig matches the user groups (from claims) that are

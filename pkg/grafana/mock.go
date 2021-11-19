@@ -38,6 +38,10 @@ func (c *mockGAPIClient) UpdateOrgUser(orgID, userID int64, role string) error {
 	return nil
 }
 
+func (c *mockGAPIClient) UpdateUserPermissions(id int64, isAdmin bool) error {
+	return nil
+}
+
 // MockClient returns a Client using a mocked GAPIClient underneat
 func NewMockClient(user gapi.User, orgRoleMap map[int64]models.RoleType) *Client {
 	return &Client{

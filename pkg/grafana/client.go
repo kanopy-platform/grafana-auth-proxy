@@ -24,6 +24,7 @@ type GAPIClient interface {
 	CreateUser(user gapi.User) (int64, error)
 	AddOrgUser(orgID int64, user, role string) error
 	UpdateOrgUser(orgID, userID int64, role string) error
+	UpdateUserPermissions(id int64, isAdmin bool) error
 }
 
 func NewClient(baseURL *url.URL, cfg gapi.Config) (*Client, error) {
@@ -114,6 +115,10 @@ func (c *Client) UpsertOrgUser(orgID int64, user gapi.User, role string) error {
 	}
 
 	return nil
+}
+
+func (c *Client) UpdateUserPermissions(id int64, isAdmin bool) error {
+	return c.client.UpdateUserPermissions(id, isAdmin)
 }
 
 func IsRoleAssignable(currentRole models.RoleType, incomingRole models.RoleType) bool {
