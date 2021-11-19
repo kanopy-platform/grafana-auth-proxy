@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -28,6 +29,7 @@ func NewRootCommand() *cobra.Command {
 
 	cmd.PersistentFlags().String("log-level", "info", "Configure log level")
 	cmd.PersistentFlags().String("listen-address", ":8080", "Server listen address")
+	cmd.PersistentFlags().Duration("http-client-timeout", 60*time.Second, "HTTP Client timeout in seconds")
 	cmd.PersistentFlags().Bool("tls-skip-verify", false, "Skip TLS certificate verification")
 	cmd.PersistentFlags().String("grafana-proxy-url", "http://grafana.example.com", "Grafana url to proxy to")
 	cmd.PersistentFlags().String("grafana-user-header", "X-WEBAUTH-USER", "Header to containing the user to authenticate")
@@ -104,8 +106,12 @@ func (c *RootCommand) runE(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	grafanaHTTPClient := http.DefaultClient
+	grafanaHTTPClient.Timeout = viper.GetDuration("http-client-timeout")
+
 	grafanaConfig := gapi.Config{
 		BasicAuth: url.UserPassword(viper.GetString("admin-user"), adminPassword),
+		Client:    grafanaHTTPClient,
 	}
 
 	grafanaClient, err := grafana.NewClient(grafanaProxyURL, grafanaConfig)
