@@ -1,7 +1,6 @@
 package server
 
 import (
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -29,8 +28,9 @@ func TestHandleRoot(t *testing.T) {
 	}
 
 	backendServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(200)
-		fmt.Fprintln(w, "this call was relayed by the reverse proxy")
+		if r.Header.Get("X-WEBAUTH-USER") == "jhon" {
+			w.WriteHeader(http.StatusOK)
+		}
 	}))
 	defer backendServer.Close()
 	backendURL, _ := url.Parse(backendServer.URL)

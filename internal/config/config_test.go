@@ -13,7 +13,7 @@ func TestValidUserGroups(t *testing.T) {
 	userGroups := []string{"one", "two", "three"}
 
 	groups := map[string]Group{
-		"two": Group{
+		"two": {
 			Orgs: []Org{
 				{
 					ID:   1,

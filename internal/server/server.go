@@ -66,7 +66,7 @@ func (s *Server) handleRoot() http.HandlerFunc {
 			return
 		}
 
-		if len(claims.Groups) < 1 {
+		if len(claims.Groups) == 0 {
 			logAndError(w, http.StatusUnauthorized, err, "groups claim is empty")
 			return
 		}
