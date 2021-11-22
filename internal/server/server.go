@@ -115,9 +115,9 @@ func (s *Server) handleRoot() http.HandlerFunc {
 		userOrgsRole := make(map[int64]models.RoleType)
 
 		for _, groupConfig := range validUserGroups {
-			if groupConfig.GrafanaAdmin && !orgUser.IsAdmin {
-				log.Infof("assigning user %s as Grafana admin", login)
-				err := s.grafanaClient.UpdateUserPermissions(orgUser.ID, true)
+			if groupConfig.GrafanaAdmin != orgUser.IsAdmin {
+				log.Infof("updating global admin status for user %s", login)
+				err := s.grafanaClient.UpdateUserPermissions(orgUser.ID, groupConfig.GrafanaAdmin)
 				if err != nil {
 					logAndError(w, http.StatusUnauthorized, err, "error assigning the user as Grafana admin")
 					return
