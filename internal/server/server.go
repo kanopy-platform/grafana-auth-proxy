@@ -6,7 +6,6 @@ import (
 	"net/http/httputil"
 	"net/url"
 
-	"github.com/grafana/grafana/pkg/models"
 	"github.com/kanopy-platform/grafana-auth-proxy/internal/config"
 	"github.com/kanopy-platform/grafana-auth-proxy/internal/jwt"
 	"github.com/kanopy-platform/grafana-auth-proxy/pkg/grafana"
@@ -102,27 +101,10 @@ func (s *Server) handleRoot() http.HandlerFunc {
 			orgUser.ID = uid
 		}
 
-		// Mapping of role per org
-		userOrgsRole := make(map[int64]models.RoleType)
-
-		for _, groupConfig := range validUserGroups {
-			if groupConfig.GrafanaAdmin != orgUser.IsAdmin {
-				log.Infof("updating global admin status for user %s", login)
-				err := s.grafanaClient.UpdateUserPermissions(orgUser.ID, groupConfig.GrafanaAdmin)
-				if err != nil {
-					logAndError(w, http.StatusUnauthorized, err, "error assigning the user as Grafana admin")
-					return
-				}
-			}
-
-			for _, org := range groupConfig.Orgs {
-				// Check if the users has a more permissive role and apply that instead
-				if !grafana.IsRoleAssignable(userOrgsRole[org.ID], models.RoleType(org.Role)) {
-					continue
-				}
-
-				userOrgsRole[org.ID] = models.RoleType(org.Role)
-			}
+		userOrgsRole, err := s.grafanaClient.UpdateOrgUserAuthz(orgUser, validUserGroups)
+		if err != nil {
+			logAndError(w, http.StatusUnauthorized, err, "error updating global Grafana admin permissions")
+			return
 		}
 
 		for orgID, role := range userOrgsRole {

@@ -7,6 +7,7 @@ import (
 
 	gapi "github.com/grafana/grafana-api-golang-client"
 	"github.com/grafana/grafana/pkg/models"
+	"github.com/kanopy-platform/grafana-auth-proxy/internal/config"
 	"github.com/kanopy-platform/k8s-auth-portal/pkg/random"
 	log "github.com/sirupsen/logrus"
 )
@@ -14,6 +15,8 @@ import (
 var (
 	ErrRoleNotValid = errors.New("role is not valid")
 )
+
+type userOrgsRoleMap map[int64]models.RoleType
 
 type Client struct {
 	client GAPIClient
@@ -121,7 +124,35 @@ func (c *Client) UpdateUserPermissions(id int64, isAdmin bool) error {
 	return c.client.UpdateUserPermissions(id, isAdmin)
 }
 
-func IsRoleAssignable(currentRole models.RoleType, incomingRole models.RoleType) bool {
+// UpdateOrgUserAuthz updates both roles and global admin status for a user taking
+// into account group configuration.
+// it will return an error when there's an issue updating the GrafanaAdmin permissions
+func (c *Client) UpdateOrgUserAuthz(user gapi.User, groups config.Groups) (userOrgsRoleMap, error) {
+	// Mapping of role per org
+	userOrgsRole := make(userOrgsRoleMap)
+
+	for _, group := range groups {
+		if group.GrafanaAdmin != user.IsAdmin {
+			err := c.UpdateUserPermissions(user.ID, group.GrafanaAdmin)
+			if err != nil {
+				return userOrgsRole, err
+			}
+		}
+
+		for _, org := range group.Orgs {
+			// Check if the users has a more permissive role and apply that instead
+			if !isRoleAssignable(userOrgsRole[org.ID], models.RoleType(org.Role)) {
+				continue
+			}
+
+			userOrgsRole[org.ID] = models.RoleType(org.Role)
+		}
+	}
+
+	return userOrgsRole, nil
+}
+
+func isRoleAssignable(currentRole models.RoleType, incomingRole models.RoleType) bool {
 	// role hierarchy
 	roleHierarchy := map[models.RoleType]int{
 		models.ROLE_VIEWER: 0,
