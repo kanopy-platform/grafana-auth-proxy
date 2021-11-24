@@ -12,8 +12,9 @@ func TestValidUserGroups(t *testing.T) {
 
 	userGroups := []string{"one", "two", "three"}
 
-	groups := map[string]Group{
+	expectedGroups := Groups{
 		"two": {
+			GrafanaAdmin: false,
 			Orgs: []Org{
 				{
 					ID:   1,
@@ -23,7 +24,25 @@ func TestValidUserGroups(t *testing.T) {
 		},
 	}
 
+	groups := map[string]Group{
+		"two": {
+			Orgs: []Org{
+				{
+					ID:   1,
+					Role: "Editor",
+				},
+			},
+		},
+		"new": {
+			Orgs: []Org{
+				{
+					ID:   3,
+					Role: "Admin",
+				},
+			},
+		},
+	}
+
 	validGroups := ValidUserGroups(userGroups, groups)
-	assert.Contains(t, validGroups, "two")
-	assert.NotContains(t, validGroups, "one")
+	assert.Equal(t, expectedGroups, validGroups)
 }
