@@ -76,29 +76,10 @@ func (s *Server) handleRoot() http.HandlerFunc {
 		validUserGroups := config.ValidUserGroups(claims.Groups, s.groups)
 		log.Debugf("valid user groups for user %s: %v", login, validUserGroups)
 
-		// lookup the user globally first as if it is not present it would need to
-		// be created
-		orgUser, err := s.grafanaClient.LookupUser(login)
+		orgUser, err := s.grafanaClient.GetOrCreateUser(login)
 		if err != nil {
-			logAndError(w, http.StatusUnauthorized, err, "error looking for user")
+			logAndError(w, http.StatusUnauthorized, err, "error obtaining or creating user")
 			return
-		}
-
-		// Assign the email from claim so it's always updated
-		orgUser.Email = claims.Email
-
-		// if the Login field in user is empty, it means that the user wasn't found
-		if orgUser.Login == "" {
-			log.Infof("no user with login %s found, creating new one", login)
-			orgUser.Login = login
-
-			uid, err := s.grafanaClient.CreateUser(orgUser)
-			if err != nil {
-				logAndError(w, http.StatusUnauthorized, err, "error creating new user")
-				return
-			}
-
-			orgUser.ID = uid
 		}
 
 		userOrgsRole, err := s.grafanaClient.UpdateOrgUserAuthz(orgUser, validUserGroups)

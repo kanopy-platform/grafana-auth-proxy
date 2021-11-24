@@ -152,6 +152,29 @@ func (c *Client) UpdateOrgUserAuthz(user gapi.User, groups config.Groups) (userO
 	return userOrgsRole, nil
 }
 
+func (c *Client) GetOrCreateUser(login string) (gapi.User, error) {
+	// lookup the user globally first as if it is not present it would need to
+	// be created
+	user, err := c.LookupUser(login)
+	if err != nil {
+		return user, err
+	}
+
+	// if the Login field in user is empty, it means that the user wasn't found
+	if user.Login == "" {
+		user.Login = login
+
+		uid, err := c.CreateUser(user)
+		if err != nil {
+			return gapi.User{}, err
+		}
+
+		user.ID = uid
+	}
+
+	return user, nil
+}
+
 func isRoleAssignable(currentRole models.RoleType, incomingRole models.RoleType) bool {
 	// role hierarchy
 	roleHierarchy := map[models.RoleType]int{
