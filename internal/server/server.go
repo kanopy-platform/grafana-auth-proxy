@@ -66,11 +66,6 @@ func (s *Server) handleRoot() http.HandlerFunc {
 			return
 		}
 
-		if len(claims.Groups) == 0 {
-			logAndError(w, http.StatusUnauthorized, err, "groups claim is empty")
-			return
-		}
-
 		// Make Subject claim the value used for login
 		login := claims.Subject
 
@@ -81,14 +76,10 @@ func (s *Server) handleRoot() http.HandlerFunc {
 		// mapping in configuration
 		validUserGroups := config.ValidUserGroups(claims.Groups, s.groups)
 		log.Debugf("valid user groups for user %s: %v", login, validUserGroups)
-		if len(validUserGroups) == 0 {
-			logAndError(w, http.StatusUnauthorized, err, "no user groups matching configured mapping")
-			return
-		}
 
 		// lookup the user globally first as if it is not present it would need to
 		// be created
-		orgUser, err := s.grafanaClient.LookupUser(claims.Subject)
+		orgUser, err := s.grafanaClient.LookupUser(login)
 		if err != nil {
 			logAndError(w, http.StatusUnauthorized, err, "error looking for user")
 			return
@@ -137,15 +128,16 @@ func (s *Server) handleRoot() http.HandlerFunc {
 		for orgID, role := range userOrgsRole {
 			err = s.grafanaClient.UpsertOrgUser(orgID, orgUser, string(role))
 			if err != nil {
-				logAndError(w, http.StatusUnauthorized, err, "error upserting user")
-				return
+				// if an upsert fails we still allow the user to login as it will be assigned to
+				// the configured default Org and Role
+				log.Infof("failed to update role %s in orgID %d for user %s", string(role), orgID, login)
 			}
 		}
 
 		log.Infof("user %s is authorized to log in", login)
 
 		r.Header.Set("X-Forwarded-Host", r.Host)
-		r.Header.Set(s.grafanaResponseHeaders.User, claims.Subject)
+		r.Header.Set(s.grafanaResponseHeaders.User, login)
 
 		// Create the reverse proxy
 		proxy := httputil.NewSingleHostReverseProxy(s.grafanaProxyUrl)
