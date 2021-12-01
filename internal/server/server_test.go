@@ -1,6 +1,7 @@
 package server
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -27,10 +28,10 @@ func TestHandleRoot(t *testing.T) {
 		},
 	}
 
+	// the backendServer represents the Grafana server. In this case we are mocking the Grafana api calls
+	// so the backend server is only here to avoid the proxy to timeout
 	backendServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Header.Get("X-WEBAUTH-USER") == "jhon" {
-			w.WriteHeader(http.StatusOK)
-		}
+		fmt.Fprintln(w, "Hello, client")
 	}))
 	defer backendServer.Close()
 	backendURL, _ := url.Parse(backendServer.URL)
@@ -69,5 +70,7 @@ func TestHandleRoot(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	server.ServeHTTP(w, req)
+	assert.Equal(t, "http://grafana.example.com", req.Header.Get("X-Forwarded-Host"))
+	assert.Equal(t, "jhon", req.Header.Get("X-WEBAUTH-USER"))
 	assert.Equal(t, http.StatusOK, w.Code)
 }
