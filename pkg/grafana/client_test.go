@@ -25,6 +25,10 @@ func TestLookupUser(t *testing.T) {
 	foundUser, err := client.LookupUser(user.Login)
 	assert.Nil(t, err)
 	assert.Equal(t, user.Login, foundUser.Login)
+
+	notFoundUser, err := client.LookupUser("")
+	assert.Nil(t, err)
+	assert.Equal(t, gapi.User{}, notFoundUser)
 }
 
 func TestCreateUser(t *testing.T) {
