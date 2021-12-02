@@ -26,6 +26,13 @@ docker-run: ## Build and run the application in a local docker container
 	@docker build -t $(CMD_NAME):latest .
 	@docker run -p ${DEFAULT_APP_PORT}:${DEFAULT_APP_PORT} $(CMD_NAME):latest
 
+docker-build:
+	@docker build -t $(CMD_NAME):latest .
+
+local-publish: docker-build
+	@docker tag $(CMD_NAME) registry.example.com/$(CMD_NAME)
+	@docker push registry.example.com/$(CMD_NAME)
+
 .PHONY: help
 help:
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
