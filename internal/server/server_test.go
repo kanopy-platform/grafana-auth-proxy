@@ -10,6 +10,7 @@ import (
 	gapi "github.com/grafana/grafana-api-golang-client"
 	"github.com/grafana/grafana/pkg/models"
 	"github.com/kanopy-platform/grafana-auth-proxy/internal/config"
+	"github.com/kanopy-platform/grafana-auth-proxy/internal/jwt"
 	"github.com/kanopy-platform/grafana-auth-proxy/pkg/grafana"
 	"github.com/stretchr/testify/assert"
 )
@@ -45,16 +46,21 @@ func TestHandleRoot(t *testing.T) {
 	req := httptest.NewRequest("GET", "/", nil)
 	req.Host = "http://grafana.example.com"
 
-	// Token Payload data
-	// {
-	// 	"sub": "jhon",
-	// 	"name": "John Doe",
-	// 	"email": "jhon@example.com",
-	// 	"groups": ["foo", "bar"]
-	// }
+	cl := jwt.Claims{
+		Email:  "jhon@example.com",
+		Groups: []string{"foo", "bar"},
+	}
+	cl.Subject = "jhon"
+
+	tokenString, err := jwt.NewTestJWTWithClaims(cl)
+	if err != nil {
+		t.Log(err)
+		t.Fail()
+	}
+
 	req.AddCookie(&http.Cookie{
 		Name:  "auth_token",
-		Value: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJqaG9uIiwibmFtZSI6IkpvaG4gRG9lIiwiZW1haWwiOiJqaG9uQGV4YW1wbGUuY29tIiwiZ3JvdXBzIjpbImZvbyIsImJhciJdfQ.gr20bPyDDFvmqV9ec71HFB7-c2iACkIoY-0VDXP_9DY",
+		Value: tokenString,
 	})
 
 	server, err := New(
