@@ -6,8 +6,8 @@ import (
 	"net/http/httputil"
 	"net/url"
 
-	"github.com/kanopy-platform/grafana-auth-proxy/internal/config"
 	"github.com/kanopy-platform/grafana-auth-proxy/internal/jwt"
+	"github.com/kanopy-platform/grafana-auth-proxy/pkg/config"
 	"github.com/kanopy-platform/grafana-auth-proxy/pkg/grafana"
 	log "github.com/sirupsen/logrus"
 )

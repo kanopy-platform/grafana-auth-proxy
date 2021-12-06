@@ -11,8 +11,8 @@ import (
 	"github.com/spf13/viper"
 
 	gapi "github.com/grafana/grafana-api-golang-client"
-	"github.com/kanopy-platform/grafana-auth-proxy/internal/config"
 	"github.com/kanopy-platform/grafana-auth-proxy/internal/server"
+	"github.com/kanopy-platform/grafana-auth-proxy/pkg/config"
 	"github.com/kanopy-platform/grafana-auth-proxy/pkg/grafana"
 )
 

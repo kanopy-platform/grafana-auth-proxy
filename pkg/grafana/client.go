@@ -7,7 +7,7 @@ import (
 
 	gapi "github.com/grafana/grafana-api-golang-client"
 	"github.com/grafana/grafana/pkg/models"
-	"github.com/kanopy-platform/grafana-auth-proxy/internal/config"
+	"github.com/kanopy-platform/grafana-auth-proxy/pkg/config"
 	"github.com/kanopy-platform/k8s-auth-portal/pkg/random"
 	log "github.com/sirupsen/logrus"
 )

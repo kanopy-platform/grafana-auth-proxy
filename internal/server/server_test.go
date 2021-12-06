@@ -9,8 +9,8 @@ import (
 
 	gapi "github.com/grafana/grafana-api-golang-client"
 	"github.com/grafana/grafana/pkg/models"
-	"github.com/kanopy-platform/grafana-auth-proxy/internal/config"
 	"github.com/kanopy-platform/grafana-auth-proxy/internal/jwt"
+	"github.com/kanopy-platform/grafana-auth-proxy/pkg/config"
 	"github.com/kanopy-platform/grafana-auth-proxy/pkg/grafana"
 	"github.com/stretchr/testify/assert"
 )
