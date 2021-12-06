@@ -49,6 +49,10 @@ func (c *mockGAPIClient) UpdateOrgUser(orgID, userID int64, role string) error {
 }
 
 func (c *mockGAPIClient) UpdateUserPermissions(id int64, isAdmin bool) error {
+	if id == 0 {
+		return errors.New("error updating user permissions")
+	}
+
 	return nil
 }
 

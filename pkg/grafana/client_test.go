@@ -90,40 +90,87 @@ func TestUpdateUserPermissions(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestUpdateOrgUserAuthz(t *testing.T) {
-
+func TestUpdateUserGrafanaAdmin(t *testing.T) {
 	user := setupUser()
 
-	groups := config.Groups{
-		"foo": {
-			Orgs: []config.Org{
-				{
-					ID:   1,
-					Role: "Editor",
-				},
-			},
-		},
-		"bar": {
-			Orgs: []config.Org{
-				{
-					ID:   1,
-					Role: "Admin",
-				},
-			},
-		},
-	}
-
-	expectedMap := userOrgsRoleMap{
-		1: "Admin",
-	}
-
-	// the client is only used to update grafana admin permissions in this case
-	// so it doesn't matter what's the current value of user or orgMap
 	client := NewMockClient(user, userOrgsRoleMap{})
 
-	orgsRoleMap, err := client.UpdateOrgUserAuthz(user, groups)
+	err := client.updateUserGrafanaAdmin(user, true)
 	assert.NoError(t, err)
-	assert.Equal(t, expectedMap, orgsRoleMap)
+
+	err = client.updateUserGrafanaAdmin(user, false)
+	assert.NoError(t, err)
+}
+
+func TestUpdateOrgUserAuthz(t *testing.T) {
+	user := setupUser()
+
+	// the client is only used to update grafana admin permissions in this case
+	// so it doesn't matter what's the current value of user or orgMap is
+	client := NewMockClient(user, userOrgsRoleMap{})
+
+	tests := []struct {
+		groups   config.Groups
+		expected userOrgsRoleMap
+		fail     bool
+	}{
+		{
+			groups: config.Groups{
+				"foo": {
+					Orgs: []config.Org{
+						{
+							ID:   1,
+							Role: "Editor",
+						},
+					},
+				},
+				"bar": {
+					Orgs: []config.Org{
+						{
+							ID:   1,
+							Role: "Admin",
+						},
+					},
+				},
+			},
+			expected: userOrgsRoleMap{1: "Admin"},
+		},
+		{
+			groups: config.Groups{
+				"foo": {
+					GrafanaAdmin: true,
+					Orgs: []config.Org{
+						{
+							ID:   1,
+							Role: "Editor",
+						},
+					},
+				},
+			},
+			expected: userOrgsRoleMap{},
+			fail:     true,
+		},
+	}
+
+	for _, test := range tests {
+		var withError bool
+
+		if test.fail {
+			// setting user.ID to 0 forces an error in UpdateUserPermissions that is used
+			// by the grafana admin update API
+			user.ID = 0
+			user.IsAdmin = false
+			withError = true
+		}
+
+		orgsRoleMap, err := client.UpdateOrgUserAuthz(user, test.groups)
+		assert.Equal(t, test.expected, orgsRoleMap)
+		if withError {
+			assert.Error(t, err)
+		} else {
+			assert.NoError(t, err)
+		}
+	}
 }
 
 func TestGetOrCreateUser(t *testing.T) {
