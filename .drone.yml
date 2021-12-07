@@ -42,6 +42,7 @@ steps:
         path: /go
     settings:
       create_repository: true
+      registry: public.ecr.aws/kanopy
       repo: ${DRONE_REPO_NAME}
       tags:
         - git-${DRONE_COMMIT_SHA:0:7}
@@ -60,6 +61,7 @@ steps:
       - name: cache
         path: /go
     settings:
+      registry: public.ecr.aws/kanopy
       repo: ${DRONE_REPO_NAME}
       tags:
         - git-${DRONE_COMMIT_SHA:0:7}
