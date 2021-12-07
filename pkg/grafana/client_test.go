@@ -138,6 +138,27 @@ func TestUpdateOrgUserAuthz(t *testing.T) {
 		{
 			groups: config.Groups{
 				"foo": {
+					Orgs: []config.Org{
+						{
+							ID:   1,
+							Role: "Admin",
+						},
+					},
+				},
+				"bar": {
+					Orgs: []config.Org{
+						{
+							ID:   1,
+							Role: "Editor",
+						},
+					},
+				},
+			},
+			expected: userOrgsRoleMap{1: "Admin"},
+		},
+		{
+			groups: config.Groups{
+				"foo": {
 					GrafanaAdmin: true,
 					Orgs: []config.Org{
 						{
