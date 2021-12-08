@@ -61,6 +61,7 @@ steps:
       - name: cache
         path: /go
     settings:
+      create_repository: true
       registry: public.ecr.aws/kanopy
       repo: ${DRONE_REPO_NAME}
       tags:
