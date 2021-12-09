@@ -14,7 +14,7 @@ func WithCookieName(cookie string) ServerFuncOpt {
 	}
 }
 
-func WithConfigGroups(groups config.Groups) ServerFuncOpt {
+func WithGroupsMap(groups config.GroupsMap) ServerFuncOpt {
 	return func(s *Server) error {
 		s.groups = groups
 		return nil

@@ -36,23 +36,14 @@ func NewRootCommand() *cobra.Command {
 	cmd.PersistentFlags().String("cookie-name", "auth_token", "Cookie name with jwt token. If set will take precedence over auth header")
 	cmd.PersistentFlags().String("admin-user", "admin", "Admin user")
 	cmd.PersistentFlags().String("admin-password", "", "Admin password")
+	cmd.PersistentFlags().String("group-config-file", "/etc/grafana-auth-proxy/config.yaml", "Grafana auth proxy config file")
 
 	return cmd
 }
 
 func (c *RootCommand) persistentPreRunE(cmd *cobra.Command, args []string) error {
-	// Read from config
-	viper.SetConfigName("config")
-	viper.AddConfigPath(".")
-	viper.AddConfigPath("/etc/grafana-auth-proxy/")
-	// viper.WatchConfig()
 
-	err := viper.ReadInConfig()
-	if err != nil {
-		log.Error("error reading config file, ", err)
-		return err
-	}
-	log.Info("Using config file ", viper.GetViper().ConfigFileUsed())
+	log.Info("Using config file ", viper.GetString("group-config-file"))
 
 	// bind flags to viper
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
@@ -121,14 +112,16 @@ func (c *RootCommand) runE(cmd *cobra.Command, args []string) error {
 	}
 	opts = append(opts, server.WithGrafanaClient(grafanaClient))
 
-	groups := config.Groups{}
-	if err := viper.UnmarshalKey("groups", &groups); err != nil {
-		log.Error("error parsing groups settings in config, ", err)
-		return err
+	config := config.New()
+
+	if err := config.Watch(viper.GetString("group-config-file")); err != nil {
+		log.Error("error watching config file, ", err)
 	}
 
-	opts = append(opts, server.WithConfigGroups(groups))
-	log.Debugf("groups configuration map: %v", groups)
+	groupsMap := config.GroupsMap()
+
+	opts = append(opts, server.WithGroupsMap(groupsMap))
+	log.Debugf("groups configuration map: %v", groupsMap)
 
 	skipTLSVerify := viper.GetBool("tls-skip-verify")
 	if skipTLSVerify {

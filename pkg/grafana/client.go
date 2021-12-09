@@ -127,7 +127,7 @@ func (c *Client) UpdateUserPermissions(id int64, isAdmin bool) error {
 // UpdateOrgUserAuthz updates both roles and global admin status for a user
 // taking into account group configuration. It outputs a mapping of role-in-org
 // it will return an error when there's an issue updating the GrafanaAdmin permissions
-func (c *Client) UpdateOrgUserAuthz(user gapi.User, groups config.Groups) (userOrgsRoleMap, error) {
+func (c *Client) UpdateOrgUserAuthz(user gapi.User, groups config.GroupsMap) (userOrgsRoleMap, error) {
 	// Mapping of role per org
 	userOrgsRole := make(userOrgsRoleMap)
 	var isGlobalAdmin bool

@@ -19,7 +19,7 @@ type GrafanaResponseHeaders struct {
 type Server struct {
 	router                 *http.ServeMux
 	cookieName             string
-	groups                 config.Groups
+	groups                 config.GroupsMap
 	grafanaProxyUrl        *url.URL
 	grafanaClient          *grafana.Client
 	grafanaResponseHeaders GrafanaResponseHeaders
