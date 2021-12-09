@@ -84,7 +84,7 @@ func TestTokenValidations(t *testing.T) {
 		server, err := New(
 			WithGrafanaProxyURL(backendURL),
 			WithCookieName(test.cookie.Name),
-			WithGroupsMap(config.GroupsMap{}),
+			WithConfig(config.New()),
 			WithGrafanaClient(client),
 			WithGrafanaResponseHeaders(GrafanaResponseHeaders{
 				User: "X-WEBAUTH-USER",
@@ -114,16 +114,15 @@ func TestHandleRoot(t *testing.T) {
 	defer backendServer.Close()
 	backendURL, _ := url.Parse(backendServer.URL)
 
-	groups := config.GroupsMap{
-		"foo": {
-			Orgs: []config.Org{
-				{
-					ID:   1,
-					Role: "Editor",
-				},
-			},
-		},
-	}
+	var configString = `
+groups:
+  foo:
+    org:
+      - id: 1
+        role: Editor
+`
+
+	config := config.NewTestConfigFromString(t, configString)
 
 	orgRoleMap := map[int64]models.RoleType{
 		1: models.ROLE_EDITOR,
@@ -134,7 +133,7 @@ func TestHandleRoot(t *testing.T) {
 	server, err := New(
 		WithGrafanaProxyURL(backendURL),
 		WithCookieName("auth_token"),
-		WithGroupsMap(groups),
+		WithConfig(config),
 		WithGrafanaClient(client),
 		WithGrafanaResponseHeaders(GrafanaResponseHeaders{
 			User: "X-WEBAUTH-USER",

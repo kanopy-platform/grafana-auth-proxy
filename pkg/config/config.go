@@ -42,13 +42,19 @@ func New() *Config {
 	}
 }
 
+func NewFromGroupsMap(gm GroupsMap) *Config {
+	return &Config{
+		groups: gm,
+	}
+}
+
 func (c *Config) SetGroup(name string, group Group) {
 	c.mu.Lock()
 	c.groups[name] = group
 	c.mu.Unlock()
 }
 
-func (c *Config) LoadGroup(name string) (Group, bool) {
+func (c *Config) GetGroup(name string) (Group, bool) {
 	c.mu.RLock()
 	result, ok := c.groups[name]
 	c.mu.RUnlock()
@@ -56,8 +62,22 @@ func (c *Config) LoadGroup(name string) (Group, bool) {
 	return result, ok
 }
 
-func (c *Config) GroupsMap() GroupsMap {
-	return c.groups
+func (c *Config) DeleteGroup(name string) {
+	c.mu.Lock()
+	delete(c.groups, name)
+	c.mu.Unlock()
+}
+
+func (c *Config) GroupNames() []string {
+	var keys []string
+
+	c.mu.RLock()
+	for key := range c.groups {
+		keys = append(keys, key)
+	}
+	c.mu.RUnlock()
+
+	return keys
 }
 
 func (c *Config) Load(file string) error {
@@ -71,7 +91,14 @@ func (c *Config) Load(file string) error {
 		return err
 	}
 
-	// Always update internal groups when loading from file
+	// handle group removals
+	for _, name := range c.GroupNames() {
+		if _, ok := config.Groups[name]; !ok {
+			c.DeleteGroup(name)
+		}
+	}
+
+	// always update internal groups when loading from file
 	for gname, gconfig := range config.Groups {
 		c.SetGroup(gname, gconfig)
 	}
@@ -81,11 +108,11 @@ func (c *Config) Load(file string) error {
 
 // ValidUserGroups matches the user groups (from claims) that are
 // present in config and returns a filtered set of Groups
-func ValidUserGroups(userGroups []string, groupsMap GroupsMap) GroupsMap {
+func (c *Config) ValidUserGroups(userGroups []string) GroupsMap {
 	finalGroups := make(GroupsMap)
 
 	for _, userGroup := range userGroups {
-		if v, ok := groupsMap[userGroup]; ok {
+		if v, ok := c.GetGroup(userGroup); ok {
 			finalGroups[userGroup] = v
 		}
 	}
@@ -123,7 +150,9 @@ func (c *Config) watch(filePath string, watcher *fsnotify.Watcher) {
 			// https://kubernetes.io/docs/concepts/configuration/secret/#secret-files-permissions
 
 			if event.Op&fsnotify.Remove == fsnotify.Remove {
-				watcher.Remove(event.Name)
+				if err := watcher.Remove(event.Name); err != nil {
+					log.Errorf("error removing watcher: %v", err)
+				}
 				if err := watcher.Add(event.Name); err != nil {
 					log.Errorf("error re-watching config: %v", err)
 				}

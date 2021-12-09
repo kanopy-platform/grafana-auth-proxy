@@ -118,10 +118,7 @@ func (c *RootCommand) runE(cmd *cobra.Command, args []string) error {
 		log.Error("error watching config file, ", err)
 	}
 
-	groupsMap := config.GroupsMap()
-
-	opts = append(opts, server.WithGroupsMap(groupsMap))
-	log.Debugf("groups configuration map: %v", groupsMap)
+	opts = append(opts, server.WithConfig(config))
 
 	skipTLSVerify := viper.GetBool("tls-skip-verify")
 	if skipTLSVerify {

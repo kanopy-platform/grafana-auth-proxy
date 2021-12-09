@@ -19,7 +19,7 @@ type GrafanaResponseHeaders struct {
 type Server struct {
 	router                 *http.ServeMux
 	cookieName             string
-	groups                 config.GroupsMap
+	config                 *config.Config
 	grafanaProxyUrl        *url.URL
 	grafanaClient          *grafana.Client
 	grafanaResponseHeaders GrafanaResponseHeaders
@@ -73,8 +73,9 @@ func (s *Server) handleRoot() http.HandlerFunc {
 
 		// validUserGroups represents the intersection of user groups from claim with the group
 		// mapping in configuration
-		validUserGroups := config.ValidUserGroups(claims.Groups, s.groups)
-		log.Debugf("valid user groups for user %s: %v", login, validUserGroups)
+		log.Debugf("groups from config: %v", s.config.GroupNames())
+		validUserGroups := s.config.ValidUserGroups(claims.Groups)
+		log.Debugf("valid groups for user %s: %v", login, validUserGroups)
 
 		orgUser, err := s.grafanaClient.GetOrCreateUser(login)
 		if err != nil {
