@@ -21,7 +21,7 @@ func newUser(login string, id int64) gapi.User {
 func TestLookupUser(t *testing.T) {
 	user := newUser("foo", 1)
 
-	client := NewMockClient(user, nil)
+	client := NewMockClient(&user, nil)
 
 	foundUser, err := client.LookupUser(user.Login)
 	assert.Nil(t, err)
@@ -35,7 +35,7 @@ func TestLookupUser(t *testing.T) {
 func TestCreateUser(t *testing.T) {
 	user := newUser("foo", 1)
 
-	client := NewMockClient(user, nil)
+	client := NewMockClient(&user, nil)
 
 	uid, err := client.CreateUser(user)
 	assert.Nil(t, err)
@@ -48,7 +48,7 @@ func TestAddOrgUser(t *testing.T) {
 	orgRoleMap := userOrgsRoleMap{
 		1: models.ROLE_EDITOR,
 	}
-	client := NewMockClient(user, orgRoleMap)
+	client := NewMockClient(&user, orgRoleMap)
 
 	// test adding to new org
 	err := client.AddOrgUser(2, "foo", "Editor")
@@ -66,7 +66,7 @@ func TestUpsertOrgUser(t *testing.T) {
 		1: models.ROLE_EDITOR,
 	}
 
-	client := NewMockClient(user, orgRoleMap)
+	client := NewMockClient(&user, orgRoleMap)
 
 	// this should always succeed except for errors when calling the rest api
 	err := client.UpsertOrgUser(1, user, "Editor")
@@ -85,7 +85,7 @@ func TestUpsertOrgUser(t *testing.T) {
 func TestUpdateUserPermissions(t *testing.T) {
 	user := newUser("foo", 1)
 
-	client := NewMockClient(user, userOrgsRoleMap{})
+	client := NewMockClient(&user, userOrgsRoleMap{})
 
 	err := client.UpdateUserPermissions(user.ID, true)
 	assert.NoError(t, err)
@@ -183,7 +183,7 @@ func TestGetOrCreateUser(t *testing.T) {
 	// Existing user
 	user := newUser("foo", 1)
 
-	client := NewMockClient(user, userOrgsRoleMap{})
+	client := NewMockClient(&user, userOrgsRoleMap{})
 
 	orgUser, err := client.GetOrCreateUser("foo")
 	assert.NoError(t, err)
