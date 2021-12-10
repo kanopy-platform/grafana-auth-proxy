@@ -146,9 +146,12 @@ func (c *Client) UpdateOrgUserAuthz(user gapi.User, groups config.Groups) (userO
 		}
 	}
 
-	err := c.UpdateUserPermissions(user.ID, isGlobalAdmin)
-	if err != nil {
-		return userOrgsRole, err
+	// only update global admin value if it's different to what the user already have
+	if user.IsAdmin != isGlobalAdmin {
+		err := c.UpdateUserPermissions(user.ID, isGlobalAdmin)
+		if err != nil {
+			return userOrgsRole, err
+		}
 	}
 
 	return userOrgsRole, nil

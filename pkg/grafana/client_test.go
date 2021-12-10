@@ -143,10 +143,13 @@ func TestUpdateOrgUserAuthz(t *testing.T) {
 			expected: userOrgsRoleMap{1: "Admin"},
 		},
 		// Using user id 0 forces an error in UpdateUserPermissions
+		// GrafanaAdmin is set to true to make it different than users's default
+		// isAdmin value
 		{
 			user: newUser("foo", 0),
 			groups: config.Groups{
 				"foo": {
+					GrafanaAdmin: true,
 					Orgs: []config.Org{
 						{
 							ID:   1,
