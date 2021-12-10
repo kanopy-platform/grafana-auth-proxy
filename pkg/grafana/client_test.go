@@ -92,11 +92,15 @@ func TestUpdateUserPermissions(t *testing.T) {
 }
 
 func TestUpdateOrgUserAuthz(t *testing.T) {
+	adminUser := newUser("foo", 1)
+	adminUser.IsAdmin = true
+
 	tests := []struct {
-		user     gapi.User
-		groups   config.Groups
-		expected userOrgsRoleMap
-		fail     bool
+		user          gapi.User
+		groups        config.Groups
+		expected      userOrgsRoleMap
+		expectedAdmin bool
+		fail          bool
 	}{
 		{
 			user: newUser("foo", 1),
@@ -142,6 +146,106 @@ func TestUpdateOrgUserAuthz(t *testing.T) {
 			},
 			expected: userOrgsRoleMap{1: "Admin"},
 		},
+		// user is Admin and 1 group in N groups is a grafana admin
+		{
+			user: adminUser,
+			groups: config.Groups{
+				"foo": {
+					GrafanaAdmin: true,
+					Orgs: []config.Org{
+						{
+							ID:   1,
+							Role: "Admin",
+						},
+					},
+				},
+				"bar": {
+					Orgs: []config.Org{
+						{
+							ID:   1,
+							Role: "Editor",
+						},
+					},
+				},
+			},
+			expected:      userOrgsRoleMap{1: "Admin"},
+			expectedAdmin: true,
+		},
+		// user is not Admin and 1 group in N groups is a grafana admin
+		{
+			user: newUser("foo", 1),
+			groups: config.Groups{
+				"foo": {
+					Orgs: []config.Org{
+						{
+							ID:   1,
+							Role: "Admin",
+						},
+					},
+				},
+				"bar": {
+					GrafanaAdmin: true,
+					Orgs: []config.Org{
+						{
+							ID:   1,
+							Role: "Editor",
+						},
+					},
+				},
+			},
+			expected:      userOrgsRoleMap{1: "Admin"},
+			expectedAdmin: true,
+		},
+		// user is not Admin and N groups have grafana admin
+		{
+			user: newUser("foo", 1),
+			groups: config.Groups{
+				"foo": {
+					GrafanaAdmin: true,
+					Orgs: []config.Org{
+						{
+							ID:   1,
+							Role: "Admin",
+						},
+					},
+				},
+				"bar": {
+					GrafanaAdmin: true,
+					Orgs: []config.Org{
+						{
+							ID:   1,
+							Role: "Editor",
+						},
+					},
+				},
+			},
+			expected:      userOrgsRoleMap{1: "Admin"},
+			expectedAdmin: true,
+		},
+		// user is Admin and no group is a grafana admin
+		{
+			user: adminUser,
+			groups: config.Groups{
+				"foo": {
+					Orgs: []config.Org{
+						{
+							ID:   1,
+							Role: "Admin",
+						},
+					},
+				},
+				"bar": {
+					Orgs: []config.Org{
+						{
+							ID:   1,
+							Role: "Editor",
+						},
+					},
+				},
+			},
+			expected:      userOrgsRoleMap{1: "Admin"},
+			expectedAdmin: false,
+		},
 		// Using user id 0 forces an error in UpdateUserPermissions
 		// GrafanaAdmin is set to true to make it different than users's default
 		// isAdmin value
@@ -166,13 +270,14 @@ func TestUpdateOrgUserAuthz(t *testing.T) {
 	for _, test := range tests {
 		// the client is only used to update grafana admin permissions in this case
 		// so it doesn't matter what's the current value of user or orgMap is
-		client := NewMockClient(test.user, userOrgsRoleMap{})
+		client := NewMockClient(&test.user, userOrgsRoleMap{})
 
 		orgsRoleMap, err := client.UpdateOrgUserAuthz(test.user, test.groups)
 
 		if !test.fail {
 			assert.Equal(t, test.expected, orgsRoleMap)
 			assert.NoError(t, err)
+			assert.Equal(t, test.expectedAdmin, test.user.IsAdmin)
 		} else {
 			assert.Error(t, err)
 		}
