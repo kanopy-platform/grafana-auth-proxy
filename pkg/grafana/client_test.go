@@ -1,6 +1,7 @@
 package grafana
 
 import (
+	"fmt"
 	"testing"
 
 	gapi "github.com/grafana/grafana-api-golang-client"
@@ -9,16 +10,16 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func setupUser() gapi.User {
+func newUser(login string, id int64) gapi.User {
 	return gapi.User{
-		ID:    1,
-		Email: "foo@example.com",
-		Login: "foo",
+		ID:    id,
+		Email: fmt.Sprintf("%s@example.com", login),
+		Login: login,
 	}
 }
 
 func TestLookupUser(t *testing.T) {
-	user := setupUser()
+	user := newUser("foo", 1)
 
 	client := NewMockClient(user, nil)
 
@@ -32,7 +33,7 @@ func TestLookupUser(t *testing.T) {
 }
 
 func TestCreateUser(t *testing.T) {
-	user := setupUser()
+	user := newUser("foo", 1)
 
 	client := NewMockClient(user, nil)
 
@@ -42,7 +43,7 @@ func TestCreateUser(t *testing.T) {
 }
 
 func TestAddOrgUser(t *testing.T) {
-	user := setupUser()
+	user := newUser("foo", 1)
 
 	orgRoleMap := userOrgsRoleMap{
 		1: models.ROLE_EDITOR,
@@ -59,7 +60,7 @@ func TestAddOrgUser(t *testing.T) {
 }
 
 func TestUpsertOrgUser(t *testing.T) {
-	user := setupUser()
+	user := newUser("foo", 1)
 
 	orgRoleMap := userOrgsRoleMap{
 		1: models.ROLE_EDITOR,
@@ -82,7 +83,7 @@ func TestUpsertOrgUser(t *testing.T) {
 
 // This is a silly test as the mock always returns nil but it's here for completeness
 func TestUpdateUserPermissions(t *testing.T) {
-	user := setupUser()
+	user := newUser("foo", 1)
 
 	client := NewMockClient(user, userOrgsRoleMap{})
 
@@ -90,31 +91,15 @@ func TestUpdateUserPermissions(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestUpdateUserGrafanaAdmin(t *testing.T) {
-	user := setupUser()
-
-	client := NewMockClient(user, userOrgsRoleMap{})
-
-	err := client.updateUserGrafanaAdmin(user, true)
-	assert.NoError(t, err)
-
-	err = client.updateUserGrafanaAdmin(user, false)
-	assert.NoError(t, err)
-}
-
 func TestUpdateOrgUserAuthz(t *testing.T) {
-	user := setupUser()
-
-	// the client is only used to update grafana admin permissions in this case
-	// so it doesn't matter what's the current value of user or orgMap is
-	client := NewMockClient(user, userOrgsRoleMap{})
-
 	tests := []struct {
+		user     gapi.User
 		groups   config.Groups
 		expected userOrgsRoleMap
 		fail     bool
 	}{
 		{
+			user: newUser("foo", 1),
 			groups: config.Groups{
 				"foo": {
 					Orgs: []config.Org{
@@ -136,6 +121,7 @@ func TestUpdateOrgUserAuthz(t *testing.T) {
 			expected: userOrgsRoleMap{1: "Admin"},
 		},
 		{
+			user: newUser("foo", 1),
 			groups: config.Groups{
 				"foo": {
 					Orgs: []config.Org{
@@ -156,10 +142,11 @@ func TestUpdateOrgUserAuthz(t *testing.T) {
 			},
 			expected: userOrgsRoleMap{1: "Admin"},
 		},
+		// Using user id 0 forces an error in UpdateUserPermissions
 		{
+			user: newUser("foo", 0),
 			groups: config.Groups{
 				"foo": {
-					GrafanaAdmin: true,
 					Orgs: []config.Org{
 						{
 							ID:   1,
@@ -168,36 +155,30 @@ func TestUpdateOrgUserAuthz(t *testing.T) {
 					},
 				},
 			},
-			expected: userOrgsRoleMap{},
+			expected: userOrgsRoleMap{1: "Editor"},
 			fail:     true,
 		},
 	}
 
 	for _, test := range tests {
-		var withError bool
+		// the client is only used to update grafana admin permissions in this case
+		// so it doesn't matter what's the current value of user or orgMap is
+		client := NewMockClient(test.user, userOrgsRoleMap{})
 
-		if test.fail {
-			// setting user.ID to 0 forces an error in UpdateUserPermissions that is used
-			// by the grafana admin update API
-			user.ID = 0
-			user.IsAdmin = false
-			withError = true
-		}
+		orgsRoleMap, err := client.UpdateOrgUserAuthz(test.user, test.groups)
 
-		orgsRoleMap, err := client.UpdateOrgUserAuthz(user, test.groups)
-		assert.Equal(t, test.expected, orgsRoleMap)
-		if withError {
-			assert.Error(t, err)
-		} else {
+		if !test.fail {
+			assert.Equal(t, test.expected, orgsRoleMap)
 			assert.NoError(t, err)
+		} else {
+			assert.Error(t, err)
 		}
 	}
 }
 
 func TestGetOrCreateUser(t *testing.T) {
-
 	// Existing user
-	user := setupUser()
+	user := newUser("foo", 1)
 
 	client := NewMockClient(user, userOrgsRoleMap{})
 
