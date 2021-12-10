@@ -36,7 +36,7 @@ func TestTokenValidations(t *testing.T) {
 	defer backendServer.Close()
 	backendURL, _ := url.Parse(backendServer.URL)
 
-	client := grafana.NewMockClient(gapi.User{Login: "jhon"}, map[int64]models.RoleType{})
+	client := grafana.NewMockClient(gapi.User{Login: "jhon", ID: 1}, map[int64]models.RoleType{})
 
 	tests := []struct {
 		name       string
@@ -129,7 +129,7 @@ func TestHandleRoot(t *testing.T) {
 		1: models.ROLE_EDITOR,
 	}
 
-	client := grafana.NewMockClient(gapi.User{Login: "jhon"}, orgRoleMap)
+	client := grafana.NewMockClient(gapi.User{Login: "jhon", ID: 1}, orgRoleMap)
 
 	server, err := New(
 		WithGrafanaProxyURL(backendURL),
