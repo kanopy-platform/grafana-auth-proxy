@@ -5,12 +5,14 @@ import (
 
 	gapi "github.com/grafana/grafana-api-golang-client"
 	"github.com/grafana/grafana/pkg/models"
+	"github.com/stretchr/testify/mock"
 )
 
 // MockGAPIClient mimicks the behaviour of required gapi calls
 type mockGAPIClient struct {
 	user       gapi.User
 	orgRoleMap userOrgsRoleMap
+	mock.Mock
 }
 
 func (c *mockGAPIClient) UserByEmail(login string) (gapi.User, error) {
@@ -49,11 +51,12 @@ func (c *mockGAPIClient) UpdateOrgUser(orgID, userID int64, role string) error {
 }
 
 func (c *mockGAPIClient) UpdateUserPermissions(id int64, isAdmin bool) error {
+	args := c.Called(id, isAdmin)
 	if id == 0 {
 		return errors.New("error updating user permissions")
 	}
 
-	return nil
+	return args.Error(0)
 }
 
 // MockClient returns a Client using a mocked GAPIClient underneat

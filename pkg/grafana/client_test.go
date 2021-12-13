@@ -1,6 +1,8 @@
 package grafana
 
 import (
+	"errors"
+	"fmt"
 	"testing"
 
 	gapi "github.com/grafana/grafana-api-golang-client"
@@ -9,16 +11,16 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func setupUser() gapi.User {
+func newUser(login string, id int64) gapi.User {
 	return gapi.User{
-		ID:    1,
-		Email: "foo@example.com",
-		Login: "foo",
+		ID:    id,
+		Email: fmt.Sprintf("%s@example.com", login),
+		Login: login,
 	}
 }
 
 func TestLookupUser(t *testing.T) {
-	user := setupUser()
+	user := newUser("foo", 1)
 
 	client := NewMockClient(user, nil)
 
@@ -32,7 +34,7 @@ func TestLookupUser(t *testing.T) {
 }
 
 func TestCreateUser(t *testing.T) {
-	user := setupUser()
+	user := newUser("foo", 1)
 
 	client := NewMockClient(user, nil)
 
@@ -42,7 +44,7 @@ func TestCreateUser(t *testing.T) {
 }
 
 func TestAddOrgUser(t *testing.T) {
-	user := setupUser()
+	user := newUser("foo", 1)
 
 	orgRoleMap := userOrgsRoleMap{
 		1: models.ROLE_EDITOR,
@@ -59,7 +61,7 @@ func TestAddOrgUser(t *testing.T) {
 }
 
 func TestUpsertOrgUser(t *testing.T) {
-	user := setupUser()
+	user := newUser("foo", 1)
 
 	orgRoleMap := userOrgsRoleMap{
 		1: models.ROLE_EDITOR,
@@ -82,39 +84,37 @@ func TestUpsertOrgUser(t *testing.T) {
 
 // This is a silly test as the mock always returns nil but it's here for completeness
 func TestUpdateUserPermissions(t *testing.T) {
-	user := setupUser()
+	user := newUser("foo", 1)
 
 	client := NewMockClient(user, userOrgsRoleMap{})
+
+	m, ok := client.client.(*mockGAPIClient)
+	if !ok {
+		t.Fail()
+	}
+
+	m.On("UpdateUserPermissions", int64(1), true).Return(nil)
 
 	err := client.UpdateUserPermissions(user.ID, true)
 	assert.NoError(t, err)
-}
 
-func TestUpdateUserGrafanaAdmin(t *testing.T) {
-	user := setupUser()
-
-	client := NewMockClient(user, userOrgsRoleMap{})
-
-	err := client.updateUserGrafanaAdmin(user, true)
-	assert.NoError(t, err)
-
-	err = client.updateUserGrafanaAdmin(user, false)
-	assert.NoError(t, err)
+	m.AssertExpectations(t)
 }
 
 func TestUpdateOrgUserAuthz(t *testing.T) {
-	user := setupUser()
-
-	// the client is only used to update grafana admin permissions in this case
-	// so it doesn't matter what's the current value of user or orgMap is
-	client := NewMockClient(user, userOrgsRoleMap{})
+	adminUser := newUser("foo", 1)
+	adminUser.IsAdmin = true
 
 	tests := []struct {
-		groups   config.Groups
-		expected userOrgsRoleMap
-		fail     bool
+		user                gapi.User
+		groups              config.Groups
+		expected            userOrgsRoleMap
+		expectedAdmin       bool
+		expectedUpdateCalls int
+		fail                bool
 	}{
 		{
+			user: newUser("foo", 1),
 			groups: config.Groups{
 				"foo": {
 					Orgs: []config.Org{
@@ -136,6 +136,7 @@ func TestUpdateOrgUserAuthz(t *testing.T) {
 			expected: userOrgsRoleMap{1: "Admin"},
 		},
 		{
+			user: newUser("foo", 1),
 			groups: config.Groups{
 				"foo": {
 					Orgs: []config.Org{
@@ -156,7 +157,113 @@ func TestUpdateOrgUserAuthz(t *testing.T) {
 			},
 			expected: userOrgsRoleMap{1: "Admin"},
 		},
+		// user is Admin and 1 group in N groups is a grafana admin
 		{
+			user: adminUser,
+			groups: config.Groups{
+				"foo": {
+					GrafanaAdmin: true,
+					Orgs: []config.Org{
+						{
+							ID:   1,
+							Role: "Admin",
+						},
+					},
+				},
+				"bar": {
+					Orgs: []config.Org{
+						{
+							ID:   1,
+							Role: "Editor",
+						},
+					},
+				},
+			},
+			expected:            userOrgsRoleMap{1: "Admin"},
+			expectedAdmin:       true,
+			expectedUpdateCalls: 0,
+		},
+		// user is not Admin and 1 group in N groups is a grafana admin
+		{
+			user: newUser("foo", 1),
+			groups: config.Groups{
+				"foo": {
+					GrafanaAdmin: true,
+					Orgs: []config.Org{
+						{
+							ID:   1,
+							Role: "Admin",
+						},
+					},
+				},
+				"bar": {
+					Orgs: []config.Org{
+						{
+							ID:   1,
+							Role: "Editor",
+						},
+					},
+				},
+			},
+			expected:            userOrgsRoleMap{1: "Admin"},
+			expectedAdmin:       true,
+			expectedUpdateCalls: 1,
+		},
+		// user is not Admin and N groups have grafana admin
+		{
+			user: newUser("foo", 1),
+			groups: config.Groups{
+				"foo": {
+					Orgs: []config.Org{
+						{
+							ID:   1,
+							Role: "Admin",
+						},
+					},
+				},
+				"bar": {
+					Orgs: []config.Org{
+						{
+							ID:   1,
+							Role: "Editor",
+						},
+					},
+				},
+			},
+			expected:            userOrgsRoleMap{1: "Admin"},
+			expectedAdmin:       false,
+			expectedUpdateCalls: 0,
+		},
+		// user is Admin and no group is a grafana admin
+		{
+			user: adminUser,
+			groups: config.Groups{
+				"foo": {
+					Orgs: []config.Org{
+						{
+							ID:   1,
+							Role: "Admin",
+						},
+					},
+				},
+				"bar": {
+					Orgs: []config.Org{
+						{
+							ID:   1,
+							Role: "Editor",
+						},
+					},
+				},
+			},
+			expected:            userOrgsRoleMap{1: "Admin"},
+			expectedAdmin:       false,
+			expectedUpdateCalls: 1,
+		},
+		// Using user id 0 forces an error in UpdateUserPermissions
+		// GrafanaAdmin is set to true to make it different than users's default
+		// isAdmin value
+		{
+			user: newUser("foo", 0),
 			groups: config.Groups{
 				"foo": {
 					GrafanaAdmin: true,
@@ -168,36 +275,49 @@ func TestUpdateOrgUserAuthz(t *testing.T) {
 					},
 				},
 			},
-			expected: userOrgsRoleMap{},
-			fail:     true,
+			expected:            userOrgsRoleMap{1: "Editor"},
+			fail:                true,
+			expectedAdmin:       true,
+			expectedUpdateCalls: 1,
 		},
 	}
 
 	for _, test := range tests {
-		var withError bool
+		// the client is only used to update grafana admin permissions in this case
+		// so it doesn't matter what's the current value of user or orgMap is
+		client := NewMockClient(test.user, userOrgsRoleMap{})
 
-		if test.fail {
-			// setting user.ID to 0 forces an error in UpdateUserPermissions that is used
-			// by the grafana admin update API
-			user.ID = 0
-			user.IsAdmin = false
-			withError = true
+		m, ok := client.client.(*mockGAPIClient)
+		if !ok {
+			t.Fail()
 		}
 
-		orgsRoleMap, err := client.UpdateOrgUserAuthz(user, test.groups)
-		assert.Equal(t, test.expected, orgsRoleMap)
-		if withError {
-			assert.Error(t, err)
+		if test.fail {
+			m.On("UpdateUserPermissions", int64(0), true).Return(errors.New("error updating user permissions"))
 		} else {
+			// this tests the portion of `user.IsAdmin != isGlobalAdmin`
+			if test.expectedUpdateCalls > 0 {
+				m.On("UpdateUserPermissions", int64(1), test.expectedAdmin).Return(nil)
+			}
+		}
+
+		orgsRoleMap, err := client.UpdateOrgUserAuthz(test.user, test.groups)
+
+		m.AssertExpectations(t)
+		m.AssertNumberOfCalls(t, "UpdateUserPermissions", test.expectedUpdateCalls)
+
+		if !test.fail {
+			assert.Equal(t, test.expected, orgsRoleMap)
 			assert.NoError(t, err)
+		} else {
+			assert.Error(t, err)
 		}
 	}
 }
 
 func TestGetOrCreateUser(t *testing.T) {
-
 	// Existing user
-	user := setupUser()
+	user := newUser("foo", 1)
 
 	client := NewMockClient(user, userOrgsRoleMap{})
 

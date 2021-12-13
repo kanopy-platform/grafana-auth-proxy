@@ -124,29 +124,17 @@ func (c *Client) UpdateUserPermissions(id int64, isAdmin bool) error {
 	return c.client.UpdateUserPermissions(id, isAdmin)
 }
 
-func (c *Client) updateUserGrafanaAdmin(user gapi.User, isAdmin bool) error {
-	if isAdmin != user.IsAdmin {
-		err := c.UpdateUserPermissions(user.ID, isAdmin)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
 // UpdateOrgUserAuthz updates both roles and global admin status for a user
 // taking into account group configuration. It outputs a mapping of role-in-org
 // it will return an error when there's an issue updating the GrafanaAdmin permissions
 func (c *Client) UpdateOrgUserAuthz(user gapi.User, groups config.Groups) (userOrgsRoleMap, error) {
 	// Mapping of role per org
 	userOrgsRole := make(userOrgsRoleMap)
+	var isGlobalAdmin bool
 
 	for _, group := range groups {
-		err := c.updateUserGrafanaAdmin(user, group.GrafanaAdmin)
-		if err != nil {
-			return userOrgsRole, err
-		}
+		// resolve grafana global admin
+		isGlobalAdmin = isGlobalAdmin || group.GrafanaAdmin
 
 		for _, org := range group.Orgs {
 			// Check if the users has a more permissive role and apply that instead
@@ -155,6 +143,14 @@ func (c *Client) UpdateOrgUserAuthz(user gapi.User, groups config.Groups) (userO
 			}
 
 			userOrgsRole[org.ID] = models.RoleType(org.Role)
+		}
+	}
+
+	// only update global admin value if it's different to what the user already have
+	if user.IsAdmin != isGlobalAdmin {
+		err := c.UpdateUserPermissions(user.ID, isGlobalAdmin)
+		if err != nil {
+			return userOrgsRole, err
 		}
 	}
 
