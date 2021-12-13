@@ -91,6 +91,63 @@ func TestUpdateUserPermissions(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestUpdateUP(t *testing.T) {
+
+	tests := []struct {
+		user          gapi.User
+		groups        config.Groups
+		expected      userOrgsRoleMap
+		expectedAdmin bool
+		fail          bool
+	}{
+		{
+			user: newUser("foo", 1),
+			groups: config.Groups{
+				"foo": {
+					Orgs: []config.Org{
+						{
+							ID:   1,
+							Role: "Editor",
+						},
+					},
+				},
+				"bar": {
+					GrafanaAdmin: true,
+					Orgs: []config.Org{
+						{
+							ID:   1,
+							Role: "Admin",
+						},
+					},
+				},
+			},
+			expected: userOrgsRoleMap{1: "Admin"},
+		},
+	}
+	for _, test := range tests {
+		// the client is only used to update grafana admin permissions in this case
+		// so it doesn't matter what's the current value of user or orgMap is
+		client := NewMockClient(&test.user, userOrgsRoleMap{})
+
+		for i := 0; i < 10; i++ {
+			client.UpdateOrgUserAuthz(test.user, test.groups)
+			if m, ok := client.client.(*mockGAPIClient); ok {
+				m.AssertCalled(t, "UpdateUserPermissions", 1, true)
+			} else {
+				t.Fail()
+			}
+		}
+
+		if m, ok := client.client.(*mockGAPIClient); ok {
+			m.AssertNumberOfCalls(t, "UpdateUserPermissions", 10)
+		} else {
+			t.Fail()
+		}
+
+	}
+
+}
+
 func TestUpdateOrgUserAuthz(t *testing.T) {
 	adminUser := newUser("foo", 1)
 	adminUser.IsAdmin = true
