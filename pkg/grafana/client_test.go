@@ -106,9 +106,12 @@ func TestUpdateOrgUserAuthz(t *testing.T) {
 	adminUser.IsAdmin = true
 
 	tests := []struct {
-		groups   config.GroupsMap
-		expected userOrgsRoleMap
-		fail     bool
+		user                gapi.User
+		groups              config.GroupsMap
+		expected            userOrgsRoleMap
+		expectedAdmin       bool
+		expectedUpdateCalls int
+		fail                bool
 	}{
 		{
 			groups: config.GroupsMap{
@@ -155,7 +158,7 @@ func TestUpdateOrgUserAuthz(t *testing.T) {
 		// user is Admin and 1 group in N groups is a grafana admin
 		{
 			user: adminUser,
-			groups: config.Groups{
+			groups: config.GroupsMap{
 				"foo": {
 					GrafanaAdmin: true,
 					Orgs: []config.Org{
@@ -181,7 +184,7 @@ func TestUpdateOrgUserAuthz(t *testing.T) {
 		// user is not Admin and 1 group in N groups is a grafana admin
 		{
 			user: newUser("foo", 1),
-			groups: config.Groups{
+			groups: config.GroupsMap{
 				"foo": {
 					GrafanaAdmin: true,
 					Orgs: []config.Org{
@@ -207,7 +210,7 @@ func TestUpdateOrgUserAuthz(t *testing.T) {
 		// user is not Admin and N groups have grafana admin
 		{
 			user: newUser("foo", 1),
-			groups: config.Groups{
+			groups: config.GroupsMap{
 				"foo": {
 					Orgs: []config.Org{
 						{
