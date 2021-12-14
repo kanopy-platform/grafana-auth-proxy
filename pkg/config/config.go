@@ -151,10 +151,10 @@ func (c *Config) watch(filePath string, watcher *fsnotify.Watcher) {
 
 			if event.Op&fsnotify.Remove == fsnotify.Remove {
 				if err := watcher.Remove(event.Name); err != nil {
-					log.Errorf("error removing watcher: %v", err)
+					log.Errorf("error removing watcher after file has been removed: %v", err)
 				}
 				if err := watcher.Add(event.Name); err != nil {
-					log.Errorf("error re-watching config: %v", err)
+					log.Errorf("error re-watching config after file has been removed: %v", err)
 				}
 				reload = true
 			}
