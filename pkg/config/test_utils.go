@@ -6,24 +6,26 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"sigs.k8s.io/yaml"
 )
 
-func NewTestConfigFromString(t *testing.T, input string) *Config {
+// NewTestConfigFromGroups returns a new Config receiving GroupsMap as input
+// and returns a *Config and a filename to a file with the content added
+func NewTestConfigFileFromGroups(t *testing.T, input GroupsMap) string {
 	tmpFile, err := ioutil.TempFile(os.TempDir(), "grafana-proxy-")
 	assert.NoError(t, err)
-	defer os.Remove(tmpFile.Name())
 
-	// data, err := yaml.Marshal(&input)
-	// assert.NoError(t, err)
+	config := config{
+		Groups: input,
+	}
 
-	_, err = tmpFile.Write([]byte(input))
+	data, err := yaml.Marshal(&config)
+	assert.NoError(t, err)
+
+	_, err = tmpFile.Write(data)
 	assert.NoError(t, err)
 	err = tmpFile.Close()
 	assert.NoError(t, err)
 
-	config := New()
-	err = config.Load(tmpFile.Name())
-	assert.NoError(t, err)
-
-	return config
+	return tmpFile.Name()
 }

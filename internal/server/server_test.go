@@ -114,15 +114,18 @@ func TestHandleRoot(t *testing.T) {
 	defer backendServer.Close()
 	backendURL, _ := url.Parse(backendServer.URL)
 
-	var configString = `
-groups:
-  foo:
-    org:
-      - id: 1
-        role: Editor
-`
+	groups := config.GroupsMap{
+		"foo": {
+			Orgs: []config.Org{
+				{
+					ID:   1,
+					Role: "Editor",
+				},
+			},
+		},
+	}
 
-	config := config.NewTestConfigFromString(t, configString)
+	config := config.NewFromGroupsMap(groups)
 
 	orgRoleMap := map[int64]models.RoleType{
 		1: models.ROLE_EDITOR,
