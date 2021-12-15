@@ -112,13 +112,30 @@ func (c *RootCommand) runE(cmd *cobra.Command, args []string) error {
 	}
 	opts = append(opts, server.WithGrafanaClient(grafanaClient))
 
-	config := config.New()
+	conf := config.New()
 
-	if err := config.Watch(viper.GetString("group-config-file")); err != nil {
+	configWatcher, err := conf.Watch(viper.GetString("group-config-file"))
+	if err != nil {
 		log.Error("error watching config file, ", err)
 	}
 
-	opts = append(opts, server.WithConfig(config))
+	go func(cw *config.ConfigWatcher) {
+		var watchErr error
+		for {
+			err := <-cw.ErrorChan
+			cw.StopChan <- true
+			if err != nil {
+				log.Error("error from watcher, ", err)
+			}
+
+			cw, watchErr = conf.Watch(viper.GetString("group-config-file"))
+			if watchErr != nil {
+				log.Error("error watching config file, ", err)
+			}
+		}
+	}(configWatcher)
+
+	opts = append(opts, server.WithConfig(conf))
 
 	skipTLSVerify := viper.GetBool("tls-skip-verify")
 	if skipTLSVerify {

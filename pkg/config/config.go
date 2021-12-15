@@ -43,13 +43,23 @@ func New() *Config {
 }
 
 func NewFromGroupsMap(gm GroupsMap) *Config {
+	mapCopy := make(GroupsMap)
+
+	for k, v := range gm {
+		mapCopy[k] = v
+	}
+
 	return &Config{
-		groups: gm,
+		groups: mapCopy,
 	}
 }
 
 func (c *Config) SetGroup(name string, group Group) {
 	c.mu.Lock()
+	if c.groups == nil {
+		c.groups = make(GroupsMap)
+	}
+
 	c.groups[name] = group
 	c.mu.Unlock()
 }
@@ -120,35 +130,46 @@ func (c *Config) ValidUserGroups(userGroups []string) GroupsMap {
 	return finalGroups
 }
 
-func (c *Config) Watch(filePath string) error {
+type ConfigWatcher struct {
+	ErrorChan chan error
+	StopChan  chan bool
+}
+
+func (c *Config) Watch(filePath string) (*ConfigWatcher, error) {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if err := watcher.Add(filePath); err != nil {
-		return err
+		return nil, err
 	}
 
 	if err := c.Load(filePath); err != nil {
-		return fmt.Errorf("error loading config: %v", err)
+		return nil, fmt.Errorf("error loading config: %v", err)
 	}
 
-	go c.watch(filePath, watcher)
-	return nil
+	stopChan := make(chan bool)
+
+	configWatcher := ConfigWatcher{
+		ErrorChan: watcher.Errors,
+		StopChan:  stopChan,
+	}
+
+	go c.watch(filePath, watcher, configWatcher.StopChan)
+	return &configWatcher, nil
 }
 
-func (c *Config) watch(filePath string, watcher *fsnotify.Watcher) {
+func (c *Config) watch(filePath string, watcher *fsnotify.Watcher, stopChan chan bool) {
 	defer watcher.Close()
 	for {
 		select {
 		case event := <-watcher.Events:
-			reload := false
+			var reload bool
 			// Mounted files are symlinks. When the kubelet refreshes the file it is removing
 			// and adding a symlink.  Therefore, when we see a remove event we know that a reload
 			// needs to take place.
 			// https://kubernetes.io/docs/concepts/configuration/secret/#secret-files-permissions
-
 			if event.Op&fsnotify.Remove == fsnotify.Remove {
 				if err := watcher.Remove(event.Name); err != nil {
 					log.Errorf("error removing watcher after file has been removed: %v", err)
@@ -169,11 +190,8 @@ func (c *Config) watch(filePath string, watcher *fsnotify.Watcher) {
 					log.Info("config file reloaded")
 				}
 			}
-		case err, ok := <-watcher.Errors:
-			log.Errorf("error on watcher reload: %v", err)
-			if !ok {
-				return
-			}
+		case <-stopChan:
+			return
 		}
 	}
 }
