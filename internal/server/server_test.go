@@ -1,6 +1,8 @@
 package server
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -154,4 +156,24 @@ func TestHandleRoot(t *testing.T) {
 	assert.Equal(t, "http://grafana.example.com", req.Header.Get("X-Forwarded-Host"))
 	assert.Equal(t, "jhon", req.Header.Get("X-WEBAUTH-USER"))
 	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestHandleHealthz(t *testing.T) {
+	server, err := New()
+	assert.NoError(t, err)
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/healthz", nil)
+	server.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusOK, w.Code)
+	want := map[string]string{"status": "ok"}
+
+	buf := new(bytes.Buffer)
+	_, err = buf.ReadFrom(w.Result().Body)
+	assert.NoError(t, err)
+
+	got := map[string]string{}
+	err = json.Unmarshal(buf.Bytes(), &got)
+	assert.NoError(t, err)
+	assert.Equal(t, want, got)
 }

@@ -2,6 +2,8 @@ package server
 
 import (
 	"crypto/tls"
+	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -39,6 +41,7 @@ func New(opts ...ServerFuncOpt) (http.Handler, error) {
 		}
 	}
 
+	s.router.HandleFunc("/healthz", s.handleHealthz())
 	s.router.HandleFunc("/", s.handleRoot())
 
 	return s.router, nil
@@ -114,6 +117,21 @@ func (s *Server) handleRoot() http.HandlerFunc {
 		}
 
 		proxy.ServeHTTP(w, r)
+	}
+}
+
+func (s *Server) handleHealthz() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		status := map[string]string{
+			"status": "ok",
+		}
+
+		bytes, err := json.Marshal(status)
+		if err != nil {
+			logAndError(w, http.StatusBadRequest, err, "error gathering status")
+		}
+		w.Header().Add("Content-Type", "application/json")
+		fmt.Fprint(w, string(bytes))
 	}
 }
 
