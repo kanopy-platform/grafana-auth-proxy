@@ -129,6 +129,7 @@ func (s *Server) handleHealthz() http.HandlerFunc {
 		bytes, err := json.Marshal(status)
 		if err != nil {
 			logAndError(w, http.StatusBadRequest, err, "error gathering status")
+			return
 		}
 		w.Header().Add("Content-Type", "application/json")
 		fmt.Fprint(w, string(bytes))
