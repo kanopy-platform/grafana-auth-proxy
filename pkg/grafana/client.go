@@ -51,7 +51,9 @@ func NewClient(baseURL *url.URL, cfg gapi.Config) (*Client, error) {
 func (c *Client) LookupUser(loginOrEmail string) (gapi.User, error) {
 	user, err := c.client.UserByEmail(loginOrEmail)
 	if err != nil {
-		if !strings.Contains(err.Error(), "User not found") {
+		// the error message is longer but given that this is constrained
+		// to a returned message from an specific call, it's better to keep it short
+		if !strings.Contains(err.Error(), "not found") {
 			return user, err
 		}
 	}
@@ -102,7 +104,7 @@ func (c *Client) UpsertOrgUser(orgID int64, user gapi.User, role string) error {
 
 	err := c.AddOrgUser(orgID, user.Login, role)
 	if err != nil {
-		if !strings.Contains(err.Error(), "User is already member of this organization") {
+		if !strings.Contains(err.Error(), "already member") {
 			return err
 		} else {
 			isOrgMember = true
