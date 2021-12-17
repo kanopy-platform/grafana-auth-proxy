@@ -53,7 +53,7 @@ func (c *Client) LookupUser(loginOrEmail string) (gapi.User, error) {
 	if err != nil {
 		// the error message is longer but given that this is constrained
 		// to a returned message from an specific call, it's better to keep it short
-		if !strings.Contains(err.Error(), "not found") {
+		if !strings.Contains(strings.ToLower(err.Error()), "user not found") {
 			return user, err
 		}
 	}
@@ -104,7 +104,7 @@ func (c *Client) UpsertOrgUser(orgID int64, user gapi.User, role string) error {
 
 	err := c.AddOrgUser(orgID, user.Login, role)
 	if err != nil {
-		if !strings.Contains(err.Error(), "already member") {
+		if !strings.Contains(strings.ToLower(err.Error()), "user is already member of this organization") {
 			return err
 		} else {
 			isOrgMember = true
