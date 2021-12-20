@@ -6,17 +6,28 @@ import (
 	"strings"
 
 	gapi "github.com/grafana/grafana-api-golang-client"
-	"github.com/grafana/grafana/pkg/models"
 	"github.com/kanopy-platform/grafana-auth-proxy/pkg/config"
 	"github.com/kanopy-platform/k8s-auth-portal/pkg/random"
 	log "github.com/sirupsen/logrus"
 )
 
 var (
-	ErrRoleNotValid = errors.New("role is not valid")
+	ErrInvalidURL           = errors.New("url is nil")
+	ErrRoleNotValid         = errors.New("role is not valid")
+	ErrUserNotFound         = errors.New("user not found")
+	ErrOrgUserAlreadyMember = errors.New("user is already member of this organization")
 )
 
-type userOrgsRoleMap map[int64]models.RoleType
+type RoleType string
+
+// Grafana pkgs cannot be safely imported as dependencies.
+const (
+	ROLE_VIEWER RoleType = "Viewer"
+	ROLE_EDITOR RoleType = "Editor"
+	ROLE_ADMIN  RoleType = "Admin"
+)
+
+type userOrgsRoleMap map[int64]RoleType
 
 type Client struct {
 	client GAPIClient
@@ -34,7 +45,7 @@ func NewClient(baseURL *url.URL, cfg gapi.Config) (*Client, error) {
 	newClient := &Client{}
 
 	if baseURL == nil {
-		return nil, errors.New("url is nil")
+		return nil, ErrInvalidURL
 	}
 
 	client, err := gapi.New(baseURL.String(), cfg)
@@ -51,7 +62,10 @@ func NewClient(baseURL *url.URL, cfg gapi.Config) (*Client, error) {
 func (c *Client) LookupUser(loginOrEmail string) (gapi.User, error) {
 	user, err := c.client.UserByEmail(loginOrEmail)
 	if err != nil {
-		if !strings.Contains(err.Error(), "User not found") {
+
+		// the error message is longer but given that this is constrained
+		// to a returned message from an specific call, it's better to keep it short
+		if !strings.Contains(strings.ToLower(err.Error()), ErrUserNotFound.Error()) {
 			return user, err
 		}
 	}
@@ -102,7 +116,8 @@ func (c *Client) UpsertOrgUser(orgID int64, user gapi.User, role string) error {
 
 	err := c.AddOrgUser(orgID, user.Login, role)
 	if err != nil {
-		if !strings.Contains(err.Error(), "User is already member of this organization") {
+
+		if !strings.Contains(strings.ToLower(err.Error()), ErrOrgUserAlreadyMember.Error()) {
 			return err
 		} else {
 			isOrgMember = true
@@ -138,11 +153,11 @@ func (c *Client) UpdateOrgUserAuthz(user gapi.User, groups config.Groups) (userO
 
 		for _, org := range group.Orgs {
 			// Check if the users has a more permissive role and apply that instead
-			if !isRoleAssignable(userOrgsRole[org.ID], models.RoleType(org.Role)) {
+			if !isRoleAssignable(userOrgsRole[org.ID], RoleType(org.Role)) {
 				continue
 			}
 
-			userOrgsRole[org.ID] = models.RoleType(org.Role)
+			userOrgsRole[org.ID] = RoleType(org.Role)
 		}
 	}
 
@@ -180,16 +195,16 @@ func (c *Client) GetOrCreateUser(login string) (gapi.User, error) {
 	return user, nil
 }
 
-func isRoleAssignable(currentRole models.RoleType, incomingRole models.RoleType) bool {
+func isRoleAssignable(currentRole RoleType, incomingRole RoleType) bool {
 	// role hierarchy
-	roleHierarchy := map[models.RoleType]int{
-		models.ROLE_VIEWER: 0,
-		models.ROLE_EDITOR: 1,
-		models.ROLE_ADMIN:  2,
+	roleHierarchy := map[RoleType]int{
+		ROLE_VIEWER: 0,
+		ROLE_EDITOR: 1,
+		ROLE_ADMIN:  2,
 	}
 
 	// If the incoming role is less than ( less privilege ) than the currently assigned role ( more privilege ), skip this mapping.
-	if currentRole != "" && roleHierarchy[models.RoleType(incomingRole)] < roleHierarchy[currentRole] {
+	if currentRole != "" && roleHierarchy[RoleType(incomingRole)] < roleHierarchy[currentRole] {
 		return false
 	}
 

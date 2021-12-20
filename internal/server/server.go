@@ -96,6 +96,7 @@ func (s *Server) handleRoot() http.HandlerFunc {
 			if err != nil {
 				// if an upsert fails we still allow the user to login as it will be assigned to
 				// the configured default Org and Role
+				log.Infof("err: %v", err)
 				log.Infof("failed to update role %s in orgID %d for user %s", string(role), orgID, login)
 			}
 		}

@@ -1,7 +1,8 @@
 FROM golang:1.16 as build
 WORKDIR /go/src/app
+COPY go.mod go.sum .
+RUN go mod download
 COPY . .
-RUN go get -d -v ./...
 RUN go build -o /go/bin/app
 
 FROM debian:buster-slim

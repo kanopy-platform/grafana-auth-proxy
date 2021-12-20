@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	gapi "github.com/grafana/grafana-api-golang-client"
-	"github.com/grafana/grafana/pkg/models"
 	"github.com/kanopy-platform/grafana-auth-proxy/pkg/config"
 	"github.com/stretchr/testify/assert"
 )
@@ -47,7 +46,7 @@ func TestAddOrgUser(t *testing.T) {
 	user := newUser("foo", 1)
 
 	orgRoleMap := userOrgsRoleMap{
-		1: models.ROLE_EDITOR,
+		1: ROLE_EDITOR,
 	}
 	client := NewMockClient(user, orgRoleMap)
 
@@ -64,7 +63,7 @@ func TestUpsertOrgUser(t *testing.T) {
 	user := newUser("foo", 1)
 
 	orgRoleMap := userOrgsRoleMap{
-		1: models.ROLE_EDITOR,
+		1: ROLE_EDITOR,
 	}
 
 	client := NewMockClient(user, orgRoleMap)
@@ -335,16 +334,16 @@ func TestGetOrCreateUser(t *testing.T) {
 
 func TestIsRoleAssignable(t *testing.T) {
 	// table test to  validate isRoleAssignable(currentRole, incomingRole)
-	assert.True(t, isRoleAssignable("", models.ROLE_VIEWER))
-	assert.True(t, isRoleAssignable(models.ROLE_VIEWER, models.ROLE_EDITOR))
-	assert.True(t, isRoleAssignable(models.ROLE_VIEWER, models.ROLE_ADMIN))
-	assert.True(t, isRoleAssignable(models.ROLE_EDITOR, models.ROLE_ADMIN))
-	assert.False(t, isRoleAssignable(models.ROLE_ADMIN, models.ROLE_EDITOR))
-	assert.False(t, isRoleAssignable(models.ROLE_ADMIN, models.ROLE_VIEWER))
-	assert.False(t, isRoleAssignable(models.ROLE_EDITOR, models.ROLE_VIEWER))
-	assert.True(t, isRoleAssignable(models.ROLE_VIEWER, models.ROLE_VIEWER))
+	assert.True(t, isRoleAssignable("", ROLE_VIEWER))
+	assert.True(t, isRoleAssignable(ROLE_VIEWER, ROLE_EDITOR))
+	assert.True(t, isRoleAssignable(ROLE_VIEWER, ROLE_ADMIN))
+	assert.True(t, isRoleAssignable(ROLE_EDITOR, ROLE_ADMIN))
+	assert.False(t, isRoleAssignable(ROLE_ADMIN, ROLE_EDITOR))
+	assert.False(t, isRoleAssignable(ROLE_ADMIN, ROLE_VIEWER))
+	assert.False(t, isRoleAssignable(ROLE_EDITOR, ROLE_VIEWER))
+	assert.True(t, isRoleAssignable(ROLE_VIEWER, ROLE_VIEWER))
 
-	roles := map[int64]models.RoleType{}
-	assert.True(t, isRoleAssignable(roles[0], models.ROLE_VIEWER))
+	roles := map[int64]RoleType{}
+	assert.True(t, isRoleAssignable(roles[0], ROLE_VIEWER))
 
 }
