@@ -10,7 +10,6 @@ import (
 	"testing"
 
 	gapi "github.com/grafana/grafana-api-golang-client"
-	"github.com/grafana/grafana/pkg/models"
 	"github.com/kanopy-platform/grafana-auth-proxy/internal/jwt"
 	"github.com/kanopy-platform/grafana-auth-proxy/pkg/config"
 	"github.com/kanopy-platform/grafana-auth-proxy/pkg/grafana"
@@ -38,7 +37,7 @@ func TestTokenValidations(t *testing.T) {
 	defer backendServer.Close()
 	backendURL, _ := url.Parse(backendServer.URL)
 
-	client := grafana.NewMockClient(gapi.User{Login: "jhon", ID: 1}, map[int64]models.RoleType{})
+	client := grafana.NewMockClient(gapi.User{Login: "jhon", ID: 1}, map[int64]grafana.RoleType{})
 
 	tests := []struct {
 		name       string
@@ -127,8 +126,8 @@ func TestHandleRoot(t *testing.T) {
 		},
 	}
 
-	orgRoleMap := map[int64]models.RoleType{
-		1: models.ROLE_EDITOR,
+	orgRoleMap := map[int64]grafana.RoleType{
+		1: grafana.ROLE_EDITOR,
 	}
 
 	client := grafana.NewMockClient(gapi.User{Login: "jhon", ID: 1}, orgRoleMap)
