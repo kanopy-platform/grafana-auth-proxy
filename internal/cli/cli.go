@@ -3,12 +3,14 @@ package cli
 import (
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"sigs.k8s.io/yaml"
 
 	gapi "github.com/grafana/grafana-api-golang-client"
 	"github.com/kanopy-platform/grafana-auth-proxy/internal/server"
@@ -31,6 +33,7 @@ func NewRootCommand() *cobra.Command {
 	cmd.PersistentFlags().String("listen-address", ":8080", "Server listen address")
 	cmd.PersistentFlags().Duration("http-client-timeout", 60*time.Second, "HTTP Client timeout in seconds")
 	cmd.PersistentFlags().Bool("tls-skip-verify", false, "Skip TLS certificate verification")
+	cmd.PersistentFlags().String("config-file", "/etc/grafana-auth-proxy/config.yaml", "Grafana auth proxy configuration file")
 	cmd.PersistentFlags().String("grafana-proxy-url", "http://grafana.example.com", "Grafana url to proxy to")
 	cmd.PersistentFlags().String("grafana-user-header", "X-WEBAUTH-USER", "Header to containing the user to authenticate")
 	cmd.PersistentFlags().String("cookie-name", "auth_token", "Cookie name with jwt token. If set will take precedence over auth header")
@@ -41,19 +44,6 @@ func NewRootCommand() *cobra.Command {
 }
 
 func (c *RootCommand) persistentPreRunE(cmd *cobra.Command, args []string) error {
-	// Read from config
-	viper.SetConfigName("config")
-	viper.AddConfigPath(".")
-	viper.AddConfigPath("/etc/grafana-auth-proxy/")
-	// viper.WatchConfig()
-
-	err := viper.ReadInConfig()
-	if err != nil {
-		log.Error("error reading config file, ", err)
-		return err
-	}
-	log.Info("Using config file ", viper.GetViper().ConfigFileUsed())
-
 	// bind flags to viper
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 	viper.SetEnvPrefix("app")
@@ -121,11 +111,17 @@ func (c *RootCommand) runE(cmd *cobra.Command, args []string) error {
 	}
 	opts = append(opts, server.WithGrafanaClient(grafanaClient))
 
-	groups := config.Groups{}
-	if err := viper.UnmarshalKey("groups", &groups); err != nil {
-		log.Error("error parsing groups settings in config, ", err)
+	configData, err := os.ReadFile(viper.GetString("config-file"))
+	if err != nil {
 		return err
 	}
+
+	groups := config.Groups{}
+	if err := yaml.Unmarshal(configData, &groups); err != nil {
+		return err
+	}
+
+	log.Info("Using config file ", viper.GetString("config-file"))
 
 	opts = append(opts, server.WithConfigGroups(groups))
 	log.Debugf("groups configuration map: %v", groups)
