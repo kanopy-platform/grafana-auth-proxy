@@ -53,6 +53,16 @@ func New(opts ...ServerFuncOpt) (http.Handler, error) {
 	return s.router, nil
 }
 
+func getValidClaim(claims *jwt.Claims, input string) string {
+	switch input {
+	case "sub":
+		return claims.Subject
+	case "email":
+		return claims.Email
+	}
+	return ""
+}
+
 func (s *Server) handleRoot() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Extract token from cookie
@@ -74,13 +84,12 @@ func (s *Server) handleRoot() http.HandlerFunc {
 			return
 		}
 
-		var login string
 		// possible values of Login claim are checked in cli beforehand
-		switch s.grafanaClaimsMap.Login {
-		case "sub":
-			login = claims.Subject
-		case "email":
-			login = claims.Email
+		login := getValidClaim(claims, s.grafanaClaimsMap.Login)
+		name := getValidClaim(claims, s.grafanaClaimsMap.Name)
+		var email string
+		if claims.Email != "" {
+			email = claims.Email
 		}
 
 		log.Infof("user %s is attempting to log in", login)
@@ -91,7 +100,7 @@ func (s *Server) handleRoot() http.HandlerFunc {
 		validUserGroups := config.ValidUserGroups(claims.Groups, s.groups)
 		log.Debugf("valid user groups for user %s: %v", login, validUserGroups)
 
-		orgUser, err := s.grafanaClient.GetOrCreateUser(login)
+		orgUser, err := s.grafanaClient.GetOrCreateUser(login, name, email)
 		if err != nil {
 			logAndError(w, http.StatusUnauthorized, err, "error obtaining or creating user")
 			return

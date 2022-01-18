@@ -176,3 +176,18 @@ func TestHandleHealthz(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, want, got)
 }
+
+func TestGetValidClaim(t *testing.T) {
+	claims := &jwt.Claims{
+		Email: fmt.Sprintf("%s@example.com", "jhon.doe"),
+	}
+	claims.Subject = "jhon.doe"
+
+	input := "sub"
+	out := getValidClaim(claims, input)
+	assert.Equal(t, claims.Subject, out)
+
+	input = "email"
+	out = getValidClaim(claims, input)
+	assert.Equal(t, claims.Email, out)
+}
