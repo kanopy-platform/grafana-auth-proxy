@@ -140,6 +140,9 @@ func TestHandleRoot(t *testing.T) {
 		WithGrafanaResponseHeaders(GrafanaResponseHeaders{
 			User: "X-WEBAUTH-USER",
 		}),
+		WithGrafanaClaimsMap(GrafanaClaimsMap{
+			Login: "sub",
+		}),
 	)
 	assert.NoError(t, err)
 
