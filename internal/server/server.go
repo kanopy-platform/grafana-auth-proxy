@@ -18,6 +18,11 @@ type GrafanaResponseHeaders struct {
 	User string
 }
 
+type GrafanaClaimsMap struct {
+	Login string
+	Name  string
+}
+
 type Server struct {
 	router                 *http.ServeMux
 	cookieName             string
@@ -25,6 +30,7 @@ type Server struct {
 	grafanaProxyUrl        *url.URL
 	grafanaClient          *grafana.Client
 	grafanaResponseHeaders GrafanaResponseHeaders
+	grafanaClaimsMap       GrafanaClaimsMap
 	skipTLSVerify          bool
 }
 
@@ -68,8 +74,14 @@ func (s *Server) handleRoot() http.HandlerFunc {
 			return
 		}
 
-		// Make Subject claim the value used for login
-		login := claims.Subject
+		var login string
+		// possible values of Login claim are checked in cli beforehand
+		switch s.grafanaClaimsMap.Login {
+		case "sub":
+			login = claims.Subject
+		case "email":
+			login = claims.Email
+		}
 
 		log.Infof("user %s is attempting to log in", login)
 		log.Debugf("claim groups for user %s: %v", login, claims.Groups)
