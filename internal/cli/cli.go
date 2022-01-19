@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
@@ -89,11 +90,11 @@ func defaultServerOptions() []server.ServerFuncOpt {
 	return opts
 }
 
-func getJWTClaimKey(key string) string {
+func isValidClaimKey(key string) error {
 	if key == "sub" || key == "email" {
-		return key
+		return nil
 	} else {
-		return ""
+		return fmt.Errorf("%s can only have a value of \"sub\" or \"email\"", key)
 	}
 }
 
@@ -116,23 +117,25 @@ func (c *RootCommand) runE(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	loginKey := getJWTClaimKey(viper.GetString("jwt-claim-login"))
-	if loginKey == "" {
-		log.Error("jwt-claim-login can only have a value of \"sub\" or \"email\"")
+	loginKey := viper.GetString("jwt-claim-login")
+	err = isValidClaimKey(loginKey)
+	if err != nil {
+		log.WithError(err)
 		return err
 	}
 
-	nameKey := getJWTClaimKey(viper.GetString("jwt-claim-name"))
-	if nameKey == "" {
-		log.Error("jwt-claim-name can only have a value of \"sub\" or \"email\"")
+	nameKey := viper.GetString("jwt-claim-name")
+	err = isValidClaimKey(nameKey)
+	if err != nil {
+		log.WithError(err)
 		return err
 	}
 
-	claimsMap := server.GrafanaClaimsMap{
+	claimsMap := server.GrafanaClaimsConfig{
 		Login: loginKey,
 		Name:  nameKey,
 	}
-	opts = append(opts, server.WithGrafanaClaimsMap(claimsMap))
+	opts = append(opts, server.WithGrafanaClaimsConfig(claimsMap))
 
 	grafanaHTTPClient := http.DefaultClient
 	grafanaHTTPClient.Timeout = viper.GetDuration("http-client-timeout")

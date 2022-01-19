@@ -18,7 +18,7 @@ type GrafanaResponseHeaders struct {
 	User string
 }
 
-type GrafanaClaimsMap struct {
+type GrafanaClaimsConfig struct {
 	Login string
 	Name  string
 }
@@ -30,7 +30,7 @@ type Server struct {
 	grafanaProxyUrl        *url.URL
 	grafanaClient          *grafana.Client
 	grafanaResponseHeaders GrafanaResponseHeaders
-	grafanaClaimsMap       GrafanaClaimsMap
+	grafanaClaimsConfig    GrafanaClaimsConfig
 	skipTLSVerify          bool
 }
 
@@ -85,12 +85,9 @@ func (s *Server) handleRoot() http.HandlerFunc {
 		}
 
 		// possible values of Login claim are checked in cli beforehand
-		login := getValidClaim(claims, s.grafanaClaimsMap.Login)
-		name := getValidClaim(claims, s.grafanaClaimsMap.Name)
-		var email string
-		if claims.Email != "" {
-			email = claims.Email
-		}
+		login := getValidClaim(claims, s.grafanaClaimsConfig.Login)
+		name := getValidClaim(claims, s.grafanaClaimsConfig.Name)
+		email := claims.Email
 
 		log.Infof("user %s is attempting to log in", login)
 		log.Debugf("claim groups for user %s: %v", login, claims.Groups)

@@ -49,9 +49,9 @@ func WithGrafanaResponseHeaders(headers GrafanaResponseHeaders) ServerFuncOpt {
 	}
 }
 
-func WithGrafanaClaimsMap(claimsMap GrafanaClaimsMap) ServerFuncOpt {
+func WithGrafanaClaimsConfig(config GrafanaClaimsConfig) ServerFuncOpt {
 	return func(s *Server) error {
-		s.grafanaClaimsMap = claimsMap
+		s.grafanaClaimsConfig = config
 		return nil
 	}
 }

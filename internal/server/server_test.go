@@ -140,7 +140,7 @@ func TestHandleRoot(t *testing.T) {
 		WithGrafanaResponseHeaders(GrafanaResponseHeaders{
 			User: "X-WEBAUTH-USER",
 		}),
-		WithGrafanaClaimsMap(GrafanaClaimsMap{
+		WithGrafanaClaimsConfig(GrafanaClaimsConfig{
 			Login: "sub",
 		}),
 	)
@@ -186,11 +186,22 @@ func TestGetValidClaim(t *testing.T) {
 	}
 	claims.Subject = "jhon.doe"
 
-	input := "sub"
-	out := getValidClaim(claims, input)
-	assert.Equal(t, claims.Subject, out)
+	tests := []struct {
+		claimKey string
+		expected string
+	}{
+		{
+			claimKey: "sub",
+			expected: claims.Subject,
+		},
+		{
+			claimKey: "email",
+			expected: claims.Email,
+		},
+	}
 
-	input = "email"
-	out = getValidClaim(claims, input)
-	assert.Equal(t, claims.Email, out)
+	for _, test := range tests {
+		value := getValidClaim(claims, test.claimKey)
+		assert.Equal(t, test.expected, value)
+	}
 }
