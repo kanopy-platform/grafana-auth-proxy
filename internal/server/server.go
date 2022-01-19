@@ -18,6 +18,11 @@ type GrafanaResponseHeaders struct {
 	User string
 }
 
+type GrafanaClaimsConfig struct {
+	Login string
+	Name  string
+}
+
 type Server struct {
 	router                 *http.ServeMux
 	cookieName             string
@@ -25,6 +30,7 @@ type Server struct {
 	grafanaProxyUrl        *url.URL
 	grafanaClient          *grafana.Client
 	grafanaResponseHeaders GrafanaResponseHeaders
+	grafanaClaimsConfig    GrafanaClaimsConfig
 	skipTLSVerify          bool
 }
 
@@ -45,6 +51,16 @@ func New(opts ...ServerFuncOpt) (http.Handler, error) {
 	s.router.HandleFunc("/", s.handleRoot())
 
 	return s.router, nil
+}
+
+func getValidClaim(claims *jwt.Claims, input string) string {
+	switch input {
+	case "sub":
+		return claims.Subject
+	case "email":
+		return claims.Email
+	}
+	return ""
 }
 
 func (s *Server) handleRoot() http.HandlerFunc {
@@ -68,8 +84,10 @@ func (s *Server) handleRoot() http.HandlerFunc {
 			return
 		}
 
-		// Make Subject claim the value used for login
-		login := claims.Subject
+		// possible values of Login claim are checked in cli beforehand
+		login := getValidClaim(claims, s.grafanaClaimsConfig.Login)
+		name := getValidClaim(claims, s.grafanaClaimsConfig.Name)
+		email := claims.Email
 
 		log.Infof("user %s is attempting to log in", login)
 		log.Debugf("claim groups for user %s: %v", login, claims.Groups)
@@ -79,7 +97,7 @@ func (s *Server) handleRoot() http.HandlerFunc {
 		validUserGroups := config.ValidUserGroups(claims.Groups, s.groups)
 		log.Debugf("valid user groups for user %s: %v", login, validUserGroups)
 
-		orgUser, err := s.grafanaClient.GetOrCreateUser(login)
+		orgUser, err := s.grafanaClient.GetOrCreateUser(login, name, email)
 		if err != nil {
 			logAndError(w, http.StatusUnauthorized, err, "error obtaining or creating user")
 			return

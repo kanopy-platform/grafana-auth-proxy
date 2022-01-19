@@ -320,16 +320,19 @@ func TestGetOrCreateUser(t *testing.T) {
 
 	client := NewMockClient(user, userOrgsRoleMap{})
 
-	orgUser, err := client.GetOrCreateUser("foo")
+	// Existing users, only Login is used for lookup
+	orgUser, err := client.GetOrCreateUser("foo", "", "")
 	assert.NoError(t, err)
 	assert.Equal(t, user, orgUser)
 
 	// New user
-	newUser, err := client.GetOrCreateUser("new")
+	newUser, err := client.GetOrCreateUser("new", "foo", "bar@foo.com")
 	assert.NoError(t, err)
 	// for convenience the CreateUser mock returns the same ID as the user.ID
 	// passed in NewMockClient
 	assert.Equal(t, int64(1), newUser.ID)
+	assert.Equal(t, "foo", newUser.Name)
+	assert.Equal(t, "bar@foo.com", newUser.Email)
 }
 
 func TestIsRoleAssignable(t *testing.T) {

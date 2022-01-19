@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
@@ -36,6 +37,8 @@ func NewRootCommand() *cobra.Command {
 	cmd.PersistentFlags().String("cookie-name", "auth_token", "Cookie name with jwt token. If set will take precedence over auth header")
 	cmd.PersistentFlags().String("admin-user", "admin", "Admin user")
 	cmd.PersistentFlags().String("admin-password", "", "Admin password")
+	cmd.PersistentFlags().String("jwt-claim-login", "email", "JWT claim to be used as user Login in Grafana. Valid values are 'email' or 'sub'")
+	cmd.PersistentFlags().String("jwt-claim-name", "sub", "JWT claim to be used as user Name in Grafana. Valid values are 'email' or 'sub'")
 
 	return cmd
 }
@@ -87,6 +90,14 @@ func defaultServerOptions() []server.ServerFuncOpt {
 	return opts
 }
 
+func isValidClaimKey(key string) error {
+	if key == "sub" || key == "email" {
+		return nil
+	} else {
+		return fmt.Errorf("%s can only have a value of \"sub\" or \"email\"", key)
+	}
+}
+
 func (c *RootCommand) runE(cmd *cobra.Command, args []string) error {
 	addr := viper.GetString("listen-address")
 	log.Infof("listening on %s", addr)
@@ -105,6 +116,26 @@ func (c *RootCommand) runE(cmd *cobra.Command, args []string) error {
 		log.Error("admin-password is not set")
 		return err
 	}
+
+	loginKey := viper.GetString("jwt-claim-login")
+	err = isValidClaimKey(loginKey)
+	if err != nil {
+		log.WithError(err)
+		return err
+	}
+
+	nameKey := viper.GetString("jwt-claim-name")
+	err = isValidClaimKey(nameKey)
+	if err != nil {
+		log.WithError(err)
+		return err
+	}
+
+	claimsMap := server.GrafanaClaimsConfig{
+		Login: loginKey,
+		Name:  nameKey,
+	}
+	opts = append(opts, server.WithGrafanaClaimsConfig(claimsMap))
 
 	grafanaHTTPClient := http.DefaultClient
 	grafanaHTTPClient.Timeout = viper.GetDuration("http-client-timeout")

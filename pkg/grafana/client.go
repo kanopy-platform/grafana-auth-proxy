@@ -172,7 +172,7 @@ func (c *Client) UpdateOrgUserAuthz(user gapi.User, groups config.Groups) (userO
 	return userOrgsRole, nil
 }
 
-func (c *Client) GetOrCreateUser(login string) (gapi.User, error) {
+func (c *Client) GetOrCreateUser(login, name, email string) (gapi.User, error) {
 	// lookup the user globally first as if it is not present it would need to
 	// be created
 	user, err := c.LookupUser(login)
@@ -183,6 +183,8 @@ func (c *Client) GetOrCreateUser(login string) (gapi.User, error) {
 	// if the Login field in user is empty, it means that the user wasn't found
 	if user.Login == "" {
 		user.Login = login
+		user.Name = name
+		user.Email = email
 
 		uid, err := c.CreateUser(user)
 		if err != nil {

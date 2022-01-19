@@ -140,6 +140,9 @@ func TestHandleRoot(t *testing.T) {
 		WithGrafanaResponseHeaders(GrafanaResponseHeaders{
 			User: "X-WEBAUTH-USER",
 		}),
+		WithGrafanaClaimsConfig(GrafanaClaimsConfig{
+			Login: "sub",
+		}),
 	)
 	assert.NoError(t, err)
 
@@ -175,4 +178,30 @@ func TestHandleHealthz(t *testing.T) {
 	err = json.Unmarshal(buf.Bytes(), &got)
 	assert.NoError(t, err)
 	assert.Equal(t, want, got)
+}
+
+func TestGetValidClaim(t *testing.T) {
+	claims := &jwt.Claims{
+		Email: fmt.Sprintf("%s@example.com", "jhon.doe"),
+	}
+	claims.Subject = "jhon.doe"
+
+	tests := []struct {
+		claimKey string
+		expected string
+	}{
+		{
+			claimKey: "sub",
+			expected: claims.Subject,
+		},
+		{
+			claimKey: "email",
+			expected: claims.Email,
+		},
+	}
+
+	for _, test := range tests {
+		value := getValidClaim(claims, test.claimKey)
+		assert.Equal(t, test.expected, value)
+	}
 }
