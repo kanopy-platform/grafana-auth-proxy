@@ -84,7 +84,7 @@ func TestTokenValidations(t *testing.T) {
 
 		server, err := New(
 			WithGrafanaProxyURL(backendURL),
-			WithTokenContainers([]jwt.TokenContainer{jwt.NewCookieContainer(test.cookie.Name)}),
+			WithTokenContainers(jwt.NewCookieContainer(test.cookie.Name)),
 			WithConfigGroups(config.Groups{}),
 			WithGrafanaClient(client),
 			WithGrafanaResponseHeaders(GrafanaResponseHeaders{
@@ -134,7 +134,7 @@ func TestHandleRoot(t *testing.T) {
 
 	server, err := New(
 		WithGrafanaProxyURL(backendURL),
-		WithTokenContainers([]jwt.TokenContainer{jwt.NewCookieContainer("auth_token")}),
+		WithTokenContainers(jwt.NewCookieContainer("auth_token")),
 		WithConfigGroups(groups),
 		WithGrafanaClient(client),
 		WithGrafanaResponseHeaders(GrafanaResponseHeaders{

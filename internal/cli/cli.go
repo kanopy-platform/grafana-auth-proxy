@@ -37,7 +37,6 @@ func NewRootCommand() *cobra.Command {
 	cmd.PersistentFlags().String("grafana-user-header", "X-WEBAUTH-USER", "Header to containing the user to authenticate")
 	cmd.PersistentFlags().String("cookie-name", "auth_token", "Name of http Cookie containing the jwt token")
 	cmd.PersistentFlags().String("header-name", "Authorization", "Name of http header containing the jwt token")
-	cmd.PersistentFlags().StringSlice("jwt-containers", []string{"cookie", "header"}, "Slice of jwt containers to try, in order")
 	cmd.PersistentFlags().String("admin-user", "admin", "Admin user")
 	cmd.PersistentFlags().String("admin-password", "", "Admin password")
 	cmd.PersistentFlags().String("jwt-claim-login", "email", "JWT claim to be used as user Login in Grafana. Valid values are 'email' or 'sub'")
@@ -85,19 +84,13 @@ func defaultServerOptions() []server.ServerFuncOpt {
 		User: viper.GetString("grafana-user-header"),
 	}
 
-	jwtContainers := viper.GetStringSlice("jwt-containers")
-
-	// HACK: Viper doesn't set the slice correctly when using an env variable
-	// so it ends up with a string containing commas at index 0
-	if strings.Contains(jwtContainers[0], ",") {
-		jwtContainers = strings.Split(jwtContainers[0], ",")
-	}
-
-	containers := buildJWTContainers(jwtContainers)
-
+	// Cookies are checked first and then header
 	opts := []server.ServerFuncOpt{
 		server.WithGrafanaResponseHeaders(responseHeaders),
-		server.WithTokenContainers(containers),
+		server.WithTokenContainers(
+			jwt.NewCookieContainer(viper.GetString("cookie-name")),
+			jwt.NewHeaderContainer(viper.GetString("header-name")),
+		),
 	}
 
 	return opts
@@ -109,21 +102,6 @@ func isValidClaimKey(key string) error {
 	} else {
 		return fmt.Errorf("%s can only have a value of \"sub\" or \"email\"", key)
 	}
-}
-
-func buildJWTContainers(jwtContainers []string) []jwt.TokenContainer {
-	var output []jwt.TokenContainer
-
-	for _, ctype := range jwtContainers {
-		switch ctype {
-		case "cookie":
-			output = append(output, jwt.NewCookieContainer(viper.GetString("cookie-name")))
-		case "header":
-			output = append(output, jwt.NewHeaderContainer(viper.GetString("header-name")))
-		}
-	}
-
-	return output
 }
 
 func (c *RootCommand) runE(cmd *cobra.Command, args []string) error {

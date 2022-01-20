@@ -1,7 +1,7 @@
 package jwt
 
 import (
-	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -9,46 +9,58 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestCookieContainer(t *testing.T) {
-	req := httptest.NewRequest("GET", "/", nil)
+const (
+	cookieName = "auth_token"
+	headerName = "Authorization"
+)
+
+func setupToken(t *testing.T) string {
 	cl := Claims{}
 	cl.Subject = "jhon.doe"
 
-	token, _ := NewTestJWTWithClaims(cl)
+	token, err := NewTestJWTWithClaims(cl)
+	assert.NoError(t, err)
 
+	return token
+}
+
+func setupRequestWithCookie(token string) *http.Request {
+	req := httptest.NewRequest("GET", "/", nil)
 	req.AddCookie(&http.Cookie{
-		Name:  "auth_token",
+		Name:  cookieName,
 		Value: token,
 	})
+	return req
+}
 
-	container := NewCookieContainer("auth_token")
+func setupRequestWithHeader(token string) *http.Request {
+	req := httptest.NewRequest("GET", "/", nil)
+	req.Header.Add(headerName, token)
+	return req
+}
+
+func TestCookieContainer(t *testing.T) {
+	token := setupToken(t)
+	req := setupRequestWithCookie(token)
+
+	container := NewCookieContainer(cookieName)
 	got, err := container.Get(req)
 	assert.NoError(t, err)
 	assert.Equal(t, got, token)
 }
 
 func TestHeaderContainer(t *testing.T) {
-	req := httptest.NewRequest("GET", "/", nil)
-	cl := Claims{}
-	cl.Subject = "jhon.doe"
+	token := setupToken(t)
+	req := setupRequestWithHeader(token)
 
-	token, _ := NewTestJWTWithClaims(cl)
-
-	req.Header.Add("Authorization", token)
-
-	container := NewHeaderContainer("Authorization")
+	container := NewHeaderContainer(headerName)
 	got, err := container.Get(req)
 	assert.NoError(t, err)
 	assert.Equal(t, got, token)
 }
 
 func TestGetFirstFromContainers(t *testing.T) {
-	cookieName := "auth_token"
-	headerName := "Authorization"
-
-	cl := Claims{}
-	cl.Subject = "jhon.doe"
-	token, _ := NewTestJWTWithClaims(cl)
+	token := setupToken(t)
 
 	tests := []struct {
 		containers []TokenContainer
@@ -106,7 +118,7 @@ func TestGetFirstFromContainers(t *testing.T) {
 			withCookie: false,
 			withHeader: false,
 			want:       "",
-			err:        errors.New("no header Authorization found"),
+			err:        fmt.Errorf("no header %s found", headerName),
 		},
 	}
 

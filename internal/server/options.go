@@ -50,9 +50,9 @@ func WithGrafanaClaimsConfig(config GrafanaClaimsConfig) ServerFuncOpt {
 	}
 }
 
-func WithTokenContainers(containers []jwt.TokenContainer) ServerFuncOpt {
+func WithTokenContainers(containers ...jwt.TokenContainer) ServerFuncOpt {
 	return func(s *Server) error {
-		s.tokenContainers = containers
+		s.tokenContainers = append(s.tokenContainers, containers...)
 		return nil
 	}
 }

@@ -24,6 +24,10 @@ func (c *CookieContainer) Get(req *http.Request) (string, error) {
 		return "", err
 	}
 
+	if cookie.Value == "" {
+		return "", fmt.Errorf("cookie %s has empty value", cookie.Name)
+	}
+
 	return cookie.Value, nil
 }
 
@@ -38,9 +42,8 @@ func NewHeaderContainer(headerName string) *HeaderContainer {
 func (h *HeaderContainer) Get(req *http.Request) (string, error) {
 	value := req.Header.Get(h.headerName)
 
-	if strings.HasPrefix(value, "Bearer") {
-		value = strings.TrimPrefix(value, "Bearer ")
-	}
+	// strip Bearer prefix if present
+	value = strings.TrimPrefix(value, "Bearer ")
 
 	if value == "" {
 		return "", fmt.Errorf("no header %s found", h.headerName)
