@@ -158,6 +158,7 @@ func TestHandleRoot(t *testing.T) {
 	assert.Equal(t, "http://grafana.example.com", req.Header.Get("X-Forwarded-Host"))
 	assert.Equal(t, "jhon", req.Header.Get("X-WEBAUTH-USER"))
 	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Empty(t, req.Header.Get("Authorization"))
 }
 
 func TestHandleHealthz(t *testing.T) {
