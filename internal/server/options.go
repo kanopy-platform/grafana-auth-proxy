@@ -3,16 +3,17 @@ package server
 import (
 	"net/url"
 
+	"github.com/kanopy-platform/grafana-auth-proxy/internal/jwt"
 	"github.com/kanopy-platform/grafana-auth-proxy/pkg/config"
 	"github.com/kanopy-platform/grafana-auth-proxy/pkg/grafana"
 )
 
-func WithCookieName(cookie string) ServerFuncOpt {
-	return func(s *Server) error {
-		s.cookieName = cookie
-		return nil
-	}
-}
+// func WithCookieName(cookie string) ServerFuncOpt {
+// 	return func(s *Server) error {
+// 		s.cookieName = cookie
+// 		return nil
+// 	}
+// }
 
 func WithConfigGroups(groups config.Groups) ServerFuncOpt {
 	return func(s *Server) error {
@@ -52,6 +53,13 @@ func WithGrafanaResponseHeaders(headers GrafanaResponseHeaders) ServerFuncOpt {
 func WithGrafanaClaimsConfig(config GrafanaClaimsConfig) ServerFuncOpt {
 	return func(s *Server) error {
 		s.grafanaClaimsConfig = config
+		return nil
+	}
+}
+
+func WithTokenContainers(containers []jwt.TokenContainer) ServerFuncOpt {
+	return func(s *Server) error {
+		s.tokenContainers = containers
 		return nil
 	}
 }
