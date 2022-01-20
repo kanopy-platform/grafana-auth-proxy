@@ -58,7 +58,7 @@ func GetFirstFromContainers(req *http.Request, containers []TokenContainer) (str
 
 	for _, container := range containers {
 		token, err = container.Get(req)
-		if token != "" {
+		if token != "" && err == nil {
 			break
 		}
 	}
