@@ -35,7 +35,7 @@ func setupRequestWithCookie(token string) *http.Request {
 
 func setupRequestWithHeader(token string) *http.Request {
 	req := httptest.NewRequest("GET", "/", nil)
-	req.Header.Add(headerName, token)
+	req.Header.Add(headerName, fmt.Sprintf("Bearer %s", token))
 	return req
 }
 
@@ -131,7 +131,7 @@ func TestGetFirstFromContainers(t *testing.T) {
 			})
 		}
 		if test.withHeader {
-			req.Header.Add(headerName, token)
+			req.Header.Add(headerName, fmt.Sprintf("Bearer %s", token))
 		}
 
 		result, err := GetFirstFromContainers(req, test.containers)
