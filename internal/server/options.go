@@ -8,13 +8,6 @@ import (
 	"github.com/kanopy-platform/grafana-auth-proxy/pkg/grafana"
 )
 
-// func WithCookieName(cookie string) ServerFuncOpt {
-// 	return func(s *Server) error {
-// 		s.cookieName = cookie
-// 		return nil
-// 	}
-// }
-
 func WithConfigGroups(groups config.Groups) ServerFuncOpt {
 	return func(s *Server) error {
 		s.groups = groups
