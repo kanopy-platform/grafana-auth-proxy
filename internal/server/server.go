@@ -124,6 +124,9 @@ func (s *Server) handleRoot() http.HandlerFunc {
 		r.Header.Set("X-Forwarded-Host", r.Host)
 		r.Header.Set(s.grafanaResponseHeaders.User, login)
 
+		// Remove the Authorization header as it's not needed anymore and will conflict with Grafana's API access
+		r.Header.Del("Authorization")
+
 		// Create the reverse proxy
 		proxy := httputil.NewSingleHostReverseProxy(s.grafanaProxyUrl)
 

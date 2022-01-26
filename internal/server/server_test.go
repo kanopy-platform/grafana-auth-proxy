@@ -154,9 +154,13 @@ func TestHandleRoot(t *testing.T) {
 		Value: newTestJWTToken("jhon"),
 	})
 
+	// Verify that if an Authorization header is present, it's correctly removed
+	req.Header.Add("Authorization", "something")
+
 	server.ServeHTTP(w, req)
 	assert.Equal(t, "http://grafana.example.com", req.Header.Get("X-Forwarded-Host"))
 	assert.Equal(t, "jhon", req.Header.Get("X-WEBAUTH-USER"))
+	assert.Equal(t, "", req.Header.Get("Authorization"))
 	assert.Equal(t, http.StatusOK, w.Code)
 }
 
