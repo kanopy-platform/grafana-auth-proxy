@@ -205,8 +205,6 @@ github.com/jtolds/gls v4.20.0+incompatible h1:xdiiI2gbIgH/gLH7ADydsJ1uDOEzR8yvV7
 github.com/jtolds/gls v4.20.0+incompatible/go.mod h1:QJZ7F/aHp+rZTRtaJ1ow/lLfFfVYBRgL+9YlvaHOwJU=
 github.com/julienschmidt/httprouter v1.2.0/go.mod h1:SYymIcj16QtmaHHD7aYtjjsJG7VTCxuUUipMqKk8s4w=
 github.com/julienschmidt/httprouter v1.3.0/go.mod h1:JR6WtHb+2LUe8TCKY3cZOxFyyO8IZAc4RVcycCCAKdM=
-github.com/kanopy-platform/k8s-auth-portal v0.1.0 h1:qKoTx50g8FkWgA4DqXz0KOU4F5Z3w5mDHbN0mGgzT3E=
-github.com/kanopy-platform/k8s-auth-portal v0.1.0/go.mod h1:UGHaJELJTCu04hKPQwZvI3FoULB2XnJ0WHDasesNAAs=
 github.com/kanopy-platform/k8s-auth-portal v0.1.4 h1:QfuOzCXRtbSBrb5akOEwC61YTfgpO3Ogx6S59bJm82Y=
 github.com/kanopy-platform/k8s-auth-portal v0.1.4/go.mod h1:8o6EpQxvo8w1zclzbBhNeJGUgEjz0FfHIgezTKXOq08=
 github.com/kisielk/errcheck v1.5.0/go.mod h1:pFxgyoBC7bSaBwPgfKdkLd5X25qrDl4LWUI2bnpBCr8=
