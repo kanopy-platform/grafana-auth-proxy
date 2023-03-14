@@ -1,7 +1,7 @@
 ---
 kind: pipeline
 type: kubernetes
-name: default
+name: test
 
 trigger:
   branch: [main]
@@ -39,43 +39,53 @@ steps:
       no_push: true
     when:
       event: [pull_request]
+---
+kind: pipeline
+name: publish-amd64
+platform:
+  arch: amd64
 
+depends_on:
+  - test
+
+trigger:
+  branch: main
+  event: [push, tag]
+
+steps:
   - name: publish
     image: plugins/kaniko-ecr
-    pull: always
-    volumes:
-      - name: cache
-        path: /go
     settings:
-      create_repository: true
       registry: public.ecr.aws/kanopy
       repo: ${DRONE_REPO_NAME}
-      tags:
-        - git-${DRONE_COMMIT_SHA:0:7}
-        - latest
+      auto_tag: true
+      auto_tag_suffix: amd64
       access_key:
         from_secret: ecr_access_key
       secret_key:
         from_secret: ecr_secret_key
-    when:
-      event: [push]
+---
+kind: pipeline
+name: publish-arm64
+platform:
+  arch: arm64
 
-  - name: publish-tag
+depends_on:
+  - test
+
+trigger:
+  branch: main
+  event: [push, tag]
+
+steps:
+  - name: publish
     image: plugins/kaniko-ecr
-    pull: always
-    volumes:
-      - name: cache
-        path: /go
     settings:
-      create_repository: true
       registry: public.ecr.aws/kanopy
       repo: ${DRONE_REPO_NAME}
-      tags:
-        - git-${DRONE_COMMIT_SHA:0:7}
-        - ${DRONE_TAG}
+      auto_tag: true
+      auto_tag_suffix: arm64
       access_key:
         from_secret: ecr_access_key
       secret_key:
         from_secret: ecr_secret_key
-    when:
-      event: [tag]
