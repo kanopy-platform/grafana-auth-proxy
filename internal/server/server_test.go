@@ -37,18 +37,26 @@ func TestTokenValidations(t *testing.T) {
 	defer backendServer.Close()
 	backendURL, _ := url.Parse(backendServer.URL)
 
+	headerName := "X-Test-Header"
+
+	validToken := newTestJWTToken("jhon")
+	noSubToken := newTestJWTToken("")
+	invalidToken := "this-is-no-valid-jwt"
+	emptyToken := ""
+
 	client := grafana.NewMockClient(gapi.User{Login: "jhon", ID: 1}, map[int64]grafana.RoleType{})
 
 	tests := []struct {
 		name       string
 		cookie     *http.Cookie
+		header     *string
 		authorized bool
 	}{
 		{
 			name: "valid JWT token and cookie",
 			cookie: &http.Cookie{
 				Name:  "auth_token",
-				Value: newTestJWTToken("jhon"),
+				Value: validToken,
 			},
 			authorized: true,
 		},
@@ -56,14 +64,14 @@ func TestTokenValidations(t *testing.T) {
 			name: "valid JWT token without sub",
 			cookie: &http.Cookie{
 				Name:  "auth_token",
-				Value: newTestJWTToken(""),
+				Value: noSubToken,
 			},
 		},
 		{
 			name: "invalid JWT token",
 			cookie: &http.Cookie{
 				Name:  "auth_token",
-				Value: "this-is-no-valid-jwt",
+				Value: invalidToken,
 			},
 		},
 		{
@@ -72,34 +80,74 @@ func TestTokenValidations(t *testing.T) {
 				Name: "",
 			},
 		},
+		{
+			name:       "valid JWT token and header",
+			header:     &validToken,
+			authorized: true,
+		},
+		{
+			name:   "valid JWT token without sub",
+			header: &noSubToken,
+		},
+		{
+			name:   "invalid JWT token",
+			header: &invalidToken,
+		},
+		{
+			name:   "Empty Header",
+			header: &emptyToken,
+		},
+		{
+			name:   "valid JWT token header and cookie",
+			header: &validToken,
+			cookie: &http.Cookie{
+				Name:  "auth_token",
+				Value: validToken,
+			},
+			authorized: true,
+		},
+		{
+			name:   "valid JWT token header invalid cookie",
+			header: &validToken,
+			cookie: &http.Cookie{
+				Name:  "auth_token",
+				Value: invalidToken,
+			},
+			authorized: true,
+		},
 	}
 
 	for _, test := range tests {
 		req := httptest.NewRequest("GET", "/", nil)
 		req.Host = "http://grafana.example.com"
 
-		if test.cookie.Name != "" {
-			req.AddCookie(test.cookie)
-		}
-
-		server, err := New(
+		opts := []ServerFuncOpt{
 			WithGrafanaProxyURL(backendURL),
-			WithCookieName(test.cookie.Name),
 			WithConfigGroups(config.Groups{}),
 			WithGrafanaClient(client),
 			WithGrafanaResponseHeaders(GrafanaResponseHeaders{
 				User: "X-WEBAUTH-USER",
 			}),
-		)
+		}
+
+		if test.cookie != nil && test.cookie.Name != "" {
+			req.AddCookie(test.cookie)
+			opts = append(opts, WithCookieName(test.cookie.Name))
+		}
+		if test.header != nil {
+			req.Header.Add(headerName, *test.header)
+			opts = append(opts, WithHeaderName(headerName))
+		}
+		server, err := New(opts...)
 		assert.NoError(t, err)
 
 		w := httptest.NewRecorder()
 		server.ServeHTTP(w, req)
 
 		if test.authorized {
-			assert.Equal(t, http.StatusOK, w.Code)
+			assert.Equal(t, http.StatusOK, w.Code, test.name)
 		} else {
-			assert.Equal(t, http.StatusUnauthorized, w.Code)
+			assert.Equal(t, http.StatusUnauthorized, w.Code, test.name)
 		}
 	}
 }

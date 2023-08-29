@@ -14,6 +14,13 @@ func WithCookieName(cookie string) ServerFuncOpt {
 	}
 }
 
+func WithHeaderName(header string) ServerFuncOpt {
+	return func(s *Server) error {
+		s.headerName = header
+		return nil
+	}
+}
+
 func WithConfigGroups(groups config.Groups) ServerFuncOpt {
 	return func(s *Server) error {
 		s.groups = groups
