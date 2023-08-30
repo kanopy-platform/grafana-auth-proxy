@@ -35,6 +35,7 @@ func NewRootCommand() *cobra.Command {
 	cmd.PersistentFlags().String("grafana-proxy-url", "http://grafana.example.com", "Grafana url to proxy to")
 	cmd.PersistentFlags().String("grafana-user-header", "X-WEBAUTH-USER", "Header to containing the user to authenticate")
 	cmd.PersistentFlags().String("cookie-name", "auth_token", "Cookie name with jwt token. If set will take precedence over auth header")
+	cmd.PersistentFlags().String("header-name", "", "header name with jwt token. If set will take precedence over cookie-name")
 	cmd.PersistentFlags().String("admin-user", "admin", "Admin user")
 	cmd.PersistentFlags().String("admin-password", "", "Admin password")
 	cmd.PersistentFlags().String("jwt-claim-login", "email", "JWT claim to be used as user Login in Grafana. Valid values are 'email' or 'sub'")
@@ -84,6 +85,7 @@ func defaultServerOptions() []server.ServerFuncOpt {
 
 	opts := []server.ServerFuncOpt{
 		server.WithCookieName(viper.GetString("cookie-name")),
+		server.WithHeaderName(viper.GetString("header-name")),
 		server.WithGrafanaResponseHeaders(responseHeaders),
 	}
 

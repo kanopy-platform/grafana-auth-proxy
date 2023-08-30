@@ -26,6 +26,7 @@ type GrafanaClaimsConfig struct {
 type Server struct {
 	router                 *http.ServeMux
 	cookieName             string
+	headerName             string
 	groups                 config.Groups
 	grafanaProxyUrl        *url.URL
 	grafanaClient          *grafana.Client
@@ -65,15 +66,27 @@ func getValidClaim(claims *jwt.Claims, input string) string {
 
 func (s *Server) handleRoot() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Extract token from cookie
-		cookie, err := r.Cookie(s.cookieName)
-		if err != nil {
-			logAndError(w, http.StatusUnauthorized, err, "error reading cookie")
-			return
+		// Get token
+		var token string
+
+		if s.headerName != "" {
+			token = r.Header.Get(s.headerName)
+			// replicate the cookie look up behavior for a missing header
+			if token == "" {
+				logAndError(w, http.StatusUnauthorized, fmt.Errorf("No value for header %s", s.headerName), "error reading header")
+				return
+			}
+		} else {
+			cookie, err := r.Cookie(s.cookieName)
+			if err != nil {
+				logAndError(w, http.StatusUnauthorized, err, "error reading cookie")
+				return
+			}
+			token = cookie.Value
 		}
 
 		// Get claims from token
-		claims, err := jwt.TokenClaims(cookie.Value)
+		claims, err := jwt.TokenClaims(token)
 		if err != nil {
 			logAndError(w, http.StatusUnauthorized, err, "error reading claims from jwt token")
 			return
