@@ -1,4 +1,4 @@
-BUILD_IMAGES = False
+BUILD_IMAGES = True
 BUILD_DIST = False
 BUILD_PIPELINE_ARCH = "arm64"
 CONTAINER_REGISTRY = "public.ecr.aws/kanopy"
