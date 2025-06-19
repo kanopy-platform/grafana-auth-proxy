@@ -2,8 +2,6 @@ module github.com/kanopy-platform/grafana-auth-proxy
 
 go 1.23
 
-toolchain go1.23.8
-
 require (
 	github.com/grafana/grafana-api-golang-client v0.27.0
 	github.com/kanopy-platform/k8s-auth-portal v0.2.0
