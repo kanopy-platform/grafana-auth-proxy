@@ -1,5 +1,4 @@
 BUILD_IMAGES = True
-PUSH_ON_TEST = True
 BUILD_DIST = False
 BUILD_PIPELINE_ARCH = "arm64"
 CONTAINER_REGISTRY = "public.ecr.aws/kanopy"
@@ -90,7 +89,7 @@ def pipeline_test(ctx):
             "image": "plugins/kaniko-ecr",
             "name": "build",
             "pull": "always",
-            "settings": {"no_push": not PUSH_ON_TEST},
+            "settings": {"no_push": True},
             "volumes": [cache_mount],
             "when": {"event": ["pull_request"]},
         })
