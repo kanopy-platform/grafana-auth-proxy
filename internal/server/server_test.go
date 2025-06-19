@@ -32,7 +32,8 @@ func TestTokenValidations(t *testing.T) {
 	// the backendServer represents the Grafana server. In this case we are mocking the Grafana api calls
 	// so the backend server is only here to avoid the proxy to timeout
 	backendServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintln(w, "Hello, client")
+		_, err := fmt.Fprintln(w, "Hello, client")
+		assert.NoError(t, err)
 	}))
 	defer backendServer.Close()
 	backendURL, _ := url.Parse(backendServer.URL)
@@ -158,7 +159,8 @@ func TestHandleRoot(t *testing.T) {
 	// the backendServer represents the Grafana server. In this case we are mocking the Grafana api calls
 	// so the backend server is only here to avoid the proxy to timeout
 	backendServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintln(w, "Hello, client")
+		_, err := fmt.Fprintln(w, "Hello, client")
+		assert.NoError(t, err)
 	}))
 	defer backendServer.Close()
 	backendURL, _ := url.Parse(backendServer.URL)
