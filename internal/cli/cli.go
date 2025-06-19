@@ -41,6 +41,8 @@ func NewRootCommand() *cobra.Command {
 	cmd.PersistentFlags().String("jwt-claim-login", "email", "JWT claim to be used as user Login in Grafana. Valid values are 'email' or 'sub'")
 	cmd.PersistentFlags().String("jwt-claim-name", "sub", "JWT claim to be used as user Name in Grafana. Valid values are 'email' or 'sub'")
 
+	cmd.AddCommand(newVersionCommand())
+
 	return cmd
 }
 
