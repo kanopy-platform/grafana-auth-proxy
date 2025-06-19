@@ -55,7 +55,7 @@ notarize-setup:
 # Cannot be run locally, macnotary server is IP restricted
 ifdef NOTARY_URI
 	apt-get update && apt-get install unzip
-	curl -LO $(NOTARY_BINARY_URL)
+	curl -LO $(NOTARY_BINARY_URL)/releases/client/v3.8.3/linux_$(BUILD_PIPELINE_ARCH).zip
 	unzip linux_$(BUILD_PIPELINE_ARCH).zip
 	mv ./linux_$(BUILD_PIPELINE_ARCH)/macnotary /usr/local/bin/macnotary
 else
