@@ -1,8 +1,11 @@
-FROM golangci/golangci-lint:v1.38.0-alpine as cache
+FROM golangci/golangci-lint:v2.0 as cache
 ENV GOLANGCI_LINT_CACHE /root/.cache/go-build
 WORKDIR $GOPATH/src/github.com/kanopy-platform/grafana-auth-proxy
 
 # download modules and build cache
+COPY go.mod go.sum ./
+RUN go mod download
+
 COPY . .
 
-RUN apk update  && apk add make  && go mod download  && golangci-lint run --timeout=5m  && go test ./...
+RUN make test
