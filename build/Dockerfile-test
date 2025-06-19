@@ -1,4 +1,4 @@
-FROM golangci/golangci-lint:v1.38.0-alpine as cache
+FROM golangci/golangci-lint:v1.64.8-alpine as cache
 ENV GOLANGCI_LINT_CACHE /root/.cache/go-build
 WORKDIR $GOPATH/src/github.com/kanopy-platform/grafana-auth-proxy
 
