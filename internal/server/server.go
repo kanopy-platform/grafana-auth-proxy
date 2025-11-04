@@ -188,11 +188,11 @@ func (s *Server) handleRoot() http.HandlerFunc {
 
 		// Log request details after proxying
 		log.WithFields(log.Fields{
-			"method":      r.Method,
-			"path":        r.URL.Path,
-			"status":      rw.statusCode,
-			"user_email":  email,
-			"user_sub":    claims.Subject,
+			"method":     r.Method,
+			"path":       r.URL.Path,
+			"status":     rw.statusCode,
+			"user_email": email,
+			"user_sub":   claims.Subject,
 		}).Info("request proxied to grafana")
 	}
 }
