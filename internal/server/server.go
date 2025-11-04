@@ -102,7 +102,7 @@ func (s *Server) handleRoot() http.HandlerFunc {
 			token = r.Header.Get(s.headerName)
 			// replicate the cookie look up behavior for a missing header
 			if token == "" {
-				logAndError(w, http.StatusUnauthorized, fmt.Errorf("No value for header %s", s.headerName), "error reading header")
+				logAndError(w, http.StatusUnauthorized, fmt.Errorf("no value for header %s", s.headerName), "error reading header")
 				return
 			}
 		} else {
@@ -209,7 +209,7 @@ func (s *Server) handleHealthz() http.HandlerFunc {
 			return
 		}
 		w.Header().Add("Content-Type", "application/json")
-		fmt.Fprint(w, string(bytes))
+		_, _ = fmt.Fprint(w, string(bytes))
 	}
 }
 

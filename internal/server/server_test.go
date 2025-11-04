@@ -33,7 +33,7 @@ func TestTokenValidations(t *testing.T) {
 	// the backendServer represents the Grafana server. In this case we are mocking the Grafana api calls
 	// so the backend server is only here to avoid the proxy to timeout
 	backendServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintln(w, "Hello, client")
+		_, _ = fmt.Fprintln(w, "Hello, client")
 	}))
 	defer backendServer.Close()
 	backendURL, _ := url.Parse(backendServer.URL)
@@ -159,7 +159,7 @@ func TestHandleRoot(t *testing.T) {
 	// the backendServer represents the Grafana server. In this case we are mocking the Grafana api calls
 	// so the backend server is only here to avoid the proxy to timeout
 	backendServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintln(w, "Hello, client")
+		_, _ = fmt.Fprintln(w, "Hello, client")
 	}))
 	defer backendServer.Close()
 	backendURL, _ := url.Parse(backendServer.URL)
@@ -284,15 +284,16 @@ func TestRequestLogging(t *testing.T) {
 
 	// Create a backend server that returns different status codes
 	backendServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/api/datasources/1" {
+		switch r.URL.Path {
+		case "/api/datasources/1":
 			w.WriteHeader(http.StatusOK)
-			fmt.Fprintln(w, `{"id": 1}`)
-		} else if r.URL.Path == "/api/dashboards/notfound" {
+			_, _ = fmt.Fprintln(w, `{"id": 1}`)
+		case "/api/dashboards/notfound":
 			w.WriteHeader(http.StatusNotFound)
-			fmt.Fprintln(w, `{"message": "not found"}`)
-		} else {
+			_, _ = fmt.Fprintln(w, `{"message": "not found"}`)
+		default:
 			w.WriteHeader(http.StatusOK)
-			fmt.Fprintln(w, "Hello, client")
+			_, _ = fmt.Fprintln(w, "Hello, client")
 		}
 	}))
 	defer backendServer.Close()
