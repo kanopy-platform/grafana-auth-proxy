@@ -188,13 +188,12 @@ func (s *Server) handleRoot() http.HandlerFunc {
 
 		// Log request details after proxying
 		log.WithFields(log.Fields{
-			"method":     r.Method,
-			"path":       r.URL.Path,
-			"status":     rw.statusCode,
-			"user_login": login,
-			"user_email": email,
-			"user_sub":   claims.Subject,
-		}).Info("request proxied to Grafana")
+			"method":      r.Method,
+			"path":        r.URL.Path,
+			"status":      rw.statusCode,
+			"user_email":  email,
+			"user_sub":    claims.Subject,
+		}).Info("request proxied to grafana")
 	}
 }
 
@@ -215,6 +214,8 @@ func (s *Server) handleHealthz() http.HandlerFunc {
 }
 
 func logAndError(w http.ResponseWriter, code int, err error, msg string) {
-	log.WithError(err).Error(msg)
+	log.WithError(err).WithFields(log.Fields{
+		"status": code,
+	}).Error(msg)
 	http.Error(w, http.StatusText(code), code)
 }
