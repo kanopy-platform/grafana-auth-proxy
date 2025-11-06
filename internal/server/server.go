@@ -35,6 +35,35 @@ type Server struct {
 	skipTLSVerify          bool
 }
 
+// responseWriter wraps http.ResponseWriter to capture the status code
+type responseWriter struct {
+	http.ResponseWriter
+	statusCode int
+}
+
+func newResponseWriter(w http.ResponseWriter) *responseWriter {
+	return &responseWriter{
+		ResponseWriter: w,
+		statusCode:     0, // 0 means not set yet
+	}
+}
+
+func (rw *responseWriter) WriteHeader(code int) {
+	if rw.statusCode == 0 {
+		rw.statusCode = code
+	}
+	rw.ResponseWriter.WriteHeader(code)
+}
+
+func (rw *responseWriter) Write(b []byte) (int, error) {
+	// If WriteHeader hasn't been called yet, status code defaults to 200
+	// (Go's http package behavior)
+	if rw.statusCode == 0 {
+		rw.statusCode = http.StatusOK
+	}
+	return rw.ResponseWriter.Write(b)
+}
+
 type ServerFuncOpt func(*Server) error
 
 func New(opts ...ServerFuncOpt) (http.Handler, error) {
@@ -73,7 +102,7 @@ func (s *Server) handleRoot() http.HandlerFunc {
 			token = r.Header.Get(s.headerName)
 			// replicate the cookie look up behavior for a missing header
 			if token == "" {
-				logAndError(w, http.StatusUnauthorized, fmt.Errorf("No value for header %s", s.headerName), "error reading header")
+				logAndError(w, http.StatusUnauthorized, fmt.Errorf("no value for header %s", s.headerName), "error reading header")
 				return
 			}
 		} else {
@@ -140,6 +169,9 @@ func (s *Server) handleRoot() http.HandlerFunc {
 		// Remove the Authorization header as it's not needed anymore and will conflict with Grafana's API access
 		r.Header.Del("Authorization")
 
+		// Wrap the response writer to capture status code
+		rw := newResponseWriter(w)
+
 		// Create the reverse proxy
 		proxy := httputil.NewSingleHostReverseProxy(s.grafanaProxyUrl)
 
@@ -151,7 +183,17 @@ func (s *Server) handleRoot() http.HandlerFunc {
 			}
 		}
 
-		proxy.ServeHTTP(w, r)
+		// Proxy the request
+		proxy.ServeHTTP(rw, r)
+
+		// Log request details after proxying
+		log.WithFields(log.Fields{
+			"method":     r.Method,
+			"path":       r.URL.Path,
+			"status":     rw.statusCode,
+			"user_email": email,
+			"user_sub":   claims.Subject,
+		}).Info("request proxied to grafana")
 	}
 }
 
@@ -167,11 +209,13 @@ func (s *Server) handleHealthz() http.HandlerFunc {
 			return
 		}
 		w.Header().Add("Content-Type", "application/json")
-		fmt.Fprint(w, string(bytes))
+		_, _ = fmt.Fprint(w, string(bytes))
 	}
 }
 
 func logAndError(w http.ResponseWriter, code int, err error, msg string) {
-	log.WithError(err).Error(msg)
+	log.WithError(err).WithFields(log.Fields{
+		"status": code,
+	}).Error(msg)
 	http.Error(w, http.StatusText(code), code)
 }
