@@ -186,9 +186,13 @@ func (s *Server) handleRoot() http.HandlerFunc {
 		// Proxy the request
 		proxy.ServeHTTP(rw, r)
 
+		queryParams := r.URL.Query()
+		orgID := queryParams.Get("orgId")
+
 		// Log request details after proxying
 		log.WithFields(log.Fields{
 			"method":     r.Method,
+			"orgId":      orgID,
 			"path":       r.URL.Path,
 			"status":     rw.statusCode,
 			"user_email": email,

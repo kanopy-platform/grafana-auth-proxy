@@ -335,27 +335,33 @@ func TestRequestLogging(t *testing.T) {
 		method         string
 		path           string
 		expectedStatus int
+		expectedPath   string
 		expectedUser   string
 		expectedEmail  string
 		expectedGroups []string
+		expectedOrgID  string
 	}{
 		{
 			name:           "GET request to datasource",
 			method:         "GET",
-			path:           "/api/datasources/1",
+			path:           "/api/datasources/1?orgId=123",
 			expectedStatus: http.StatusOK,
+			expectedPath:   "/api/datasources/1",
 			expectedUser:   "testuser",
 			expectedEmail:  "testuser@example.com",
 			expectedGroups: []string{"foo", "bar"},
+			expectedOrgID:  "123",
 		},
 		{
 			name:           "POST request with 404 response",
 			method:         "POST",
-			path:           "/api/dashboards/notfound",
+			path:           "/api/dashboards/notfound?orgId=123",
 			expectedStatus: http.StatusNotFound,
+			expectedPath:   "/api/dashboards/notfound",
 			expectedUser:   "testuser",
 			expectedEmail:  "testuser@example.com",
 			expectedGroups: []string{"foo", "bar"},
+			expectedOrgID:  "123",
 		},
 	}
 
@@ -392,10 +398,11 @@ func TestRequestLogging(t *testing.T) {
 
 			// Verify all required fields are present (using the changed field names)
 			assert.Equal(t, test.method, logEntry.Data["method"], "method field should match")
-			assert.Equal(t, test.path, logEntry.Data["path"], "path field should match")
+			assert.Equal(t, test.expectedPath, logEntry.Data["path"], "path field should match")
 			assert.Equal(t, test.expectedStatus, logEntry.Data["status"], "status field should match")
 			assert.Equal(t, test.expectedEmail, logEntry.Data["user_email"], "user_email field should match")
 			assert.Equal(t, "testuser", logEntry.Data["user_sub"], "user_sub field should match")
+			assert.Equal(t, test.expectedOrgID, logEntry.Data["orgId"], "orgId field should match")
 		})
 	}
 }
