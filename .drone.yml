@@ -49,8 +49,7 @@ depends_on:
   - test
 
 trigger:
-  branch: main
-  event: [push, tag]
+  event: [tag]
 
 steps:
   - name: publish
@@ -74,8 +73,7 @@ depends_on:
   - test
 
 trigger:
-  branch: main
-  event: [push, tag]
+  event: [tag]
 
 steps:
   - name: publish
