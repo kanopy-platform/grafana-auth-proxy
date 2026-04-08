@@ -330,7 +330,7 @@ func TestDefaultGroup(t *testing.T) {
 			wantStatus:   http.StatusOK,
 		},
 		{
-			name:         "no default_group configured preserves existing behavior",
+			name:         "no default_group configured, user authenticates without org assignment",
 			token:        newServiceAccountJWTToken("svc-account"),
 			mockUser:     gapi.User{Login: "svc-account", ID: 1},
 			orgRoleMap:   map[int64]grafana.RoleType{},
