@@ -163,16 +163,6 @@ func (c *RootCommand) runE(cmd *cobra.Command, args []string) error {
 	opts = append(opts, server.WithConfigGroups(groups))
 	log.Debugf("groups configuration map: %v", groups)
 
-	var defaultGroup *config.Group
-	if err := viper.UnmarshalKey("default_group", &defaultGroup); err != nil {
-		log.Error("error parsing default_group settings in config, ", err)
-		return err
-	}
-	if defaultGroup != nil {
-		opts = append(opts, server.WithDefaultGroup(defaultGroup))
-		log.Debugf("default_group configuration: %v", defaultGroup)
-	}
-
 	skipTLSVerify := viper.GetBool("tls-skip-verify")
 	if skipTLSVerify {
 		opts = append(opts, server.SkipTLSVerify())
