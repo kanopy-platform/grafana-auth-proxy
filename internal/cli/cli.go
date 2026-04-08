@@ -38,7 +38,7 @@ func NewRootCommand() *cobra.Command {
 	cmd.PersistentFlags().String("header-name", "", "header name with jwt token. If set will take precedence over cookie-name")
 	cmd.PersistentFlags().String("admin-user", "admin", "Admin user")
 	cmd.PersistentFlags().String("admin-password", "", "Admin password")
-	cmd.PersistentFlags().String("jwt-claim-login", "email", "JWT claim to be used as user Login in Grafana. Valid values are 'email' or 'sub'")
+	cmd.PersistentFlags().String("jwt-claim-login", "email", "JWT claim to be used as user Login in Grafana. Valid values are 'email' or 'sub'. Falls back to 'sub' if the configured claim is empty.")
 	cmd.PersistentFlags().String("jwt-claim-name", "sub", "JWT claim to be used as user Name in Grafana. Valid values are 'email' or 'sub'")
 
 	return cmd
