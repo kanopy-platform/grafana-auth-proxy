@@ -29,6 +29,16 @@ func newTestJWTToken(subject string) string {
 	return tokenString
 }
 
+// newServiceAccountJWTToken creates a JWT with only a sub claim, simulating a client credentials token.
+func newServiceAccountJWTToken(subject string) string {
+	cl := jwt.Claims{}
+	cl.Subject = subject
+
+	tokenString, _ := jwt.NewTestJWTWithClaims(cl)
+
+	return tokenString
+}
+
 func TestTokenValidations(t *testing.T) {
 	// the backendServer represents the Grafana server. In this case we are mocking the Grafana api calls
 	// so the backend server is only here to avoid the proxy to timeout
@@ -231,6 +241,133 @@ func TestHandleHealthz(t *testing.T) {
 	err = json.Unmarshal(buf.Bytes(), &got)
 	assert.NoError(t, err)
 	assert.Equal(t, want, got)
+}
+
+func TestSubLoginFallback(t *testing.T) {
+	t.Parallel()
+
+	backendServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = fmt.Fprintln(w, "Hello, client")
+	}))
+	defer backendServer.Close()
+	backendURL, _ := url.Parse(backendServer.URL)
+
+	// Mock client expects the sub value as the login identifier
+	client := grafana.NewMockClient(gapi.User{Login: "svc-account-sub", ID: 1}, map[int64]grafana.RoleType{})
+
+	server, err := New(
+		WithGrafanaProxyURL(backendURL),
+		WithCookieName("auth_token"),
+		WithConfigGroups(config.Groups{}),
+		WithGrafanaClient(client),
+		WithGrafanaResponseHeaders(GrafanaResponseHeaders{User: "X-WEBAUTH-USER"}),
+		// Default login claim is "email"; token has no email so sub should be used
+		WithGrafanaClaimsConfig(GrafanaClaimsConfig{Login: "email", Name: "sub"}),
+	)
+	assert.NoError(t, err)
+
+	req := httptest.NewRequest("GET", "/", nil)
+	req.Host = "http://grafana.example.com"
+	req.AddCookie(&http.Cookie{
+		Name:  "auth_token",
+		Value: newServiceAccountJWTToken("svc-account-sub"),
+	})
+
+	w := httptest.NewRecorder()
+	server.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "svc-account-sub", req.Header.Get("X-WEBAUTH-USER"))
+}
+
+func TestDefaultGroup(t *testing.T) {
+	t.Parallel()
+
+	backendServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = fmt.Fprintln(w, "Hello, client")
+	}))
+	defer backendServer.Close()
+	backendURL, _ := url.Parse(backendServer.URL)
+
+	defaultGroup := &config.Group{
+		Orgs: []config.Org{
+			{ID: 2, Role: "Viewer"},
+		},
+	}
+
+	// "foo" matches the groups claim in tokens produced by newTestJWTToken
+	configuredGroups := config.Groups{
+		"foo": {
+			Orgs: []config.Org{
+				{ID: 1, Role: "Editor"},
+			},
+		},
+	}
+
+	tests := []struct {
+		name         string
+		token        string
+		mockUser     gapi.User
+		orgRoleMap   map[int64]grafana.RoleType
+		defaultGroup *config.Group
+		wantStatus   int
+	}{
+		{
+			name:         "default_group applied when user has no matching groups",
+			token:        newServiceAccountJWTToken("svc-account"),
+			mockUser:     gapi.User{Login: "svc-account", ID: 1},
+			orgRoleMap:   map[int64]grafana.RoleType{},
+			defaultGroup: defaultGroup,
+			wantStatus:   http.StatusOK,
+		},
+		{
+			// newTestJWTToken includes groups ["foo", "bar"]; "foo" matches configuredGroups
+			name:         "default_group not applied when user has valid groups",
+			token:        newTestJWTToken("regularuser"),
+			mockUser:     gapi.User{Login: "regularuser@example.com", ID: 1},
+			orgRoleMap:   map[int64]grafana.RoleType{1: grafana.ROLE_EDITOR},
+			defaultGroup: defaultGroup,
+			wantStatus:   http.StatusOK,
+		},
+		{
+			name:         "no default_group configured preserves existing behavior",
+			token:        newServiceAccountJWTToken("svc-account"),
+			mockUser:     gapi.User{Login: "svc-account", ID: 1},
+			orgRoleMap:   map[int64]grafana.RoleType{},
+			defaultGroup: nil,
+			wantStatus:   http.StatusOK,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			client := grafana.NewMockClient(test.mockUser, test.orgRoleMap)
+
+			opts := []ServerFuncOpt{
+				WithGrafanaProxyURL(backendURL),
+				WithCookieName("auth_token"),
+				WithConfigGroups(configuredGroups),
+				WithGrafanaClient(client),
+				WithGrafanaResponseHeaders(GrafanaResponseHeaders{User: "X-WEBAUTH-USER"}),
+				WithGrafanaClaimsConfig(GrafanaClaimsConfig{Login: "email", Name: "sub"}),
+			}
+			if test.defaultGroup != nil {
+				opts = append(opts, WithDefaultGroup(test.defaultGroup))
+			}
+
+			s, err := New(opts...)
+			assert.NoError(t, err)
+
+			req := httptest.NewRequest("GET", "/", nil)
+			req.Host = "http://grafana.example.com"
+			req.AddCookie(&http.Cookie{Name: "auth_token", Value: test.token})
+
+			w := httptest.NewRecorder()
+			s.ServeHTTP(w, req)
+
+			assert.Equal(t, test.wantStatus, w.Code, test.name)
+		})
+	}
 }
 
 func TestGetValidClaim(t *testing.T) {

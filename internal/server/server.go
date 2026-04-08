@@ -28,6 +28,7 @@ type Server struct {
 	cookieName             string
 	headerName             string
 	groups                 config.Groups
+	defaultGroup           *config.Group
 	grafanaProxyUrl        *url.URL
 	grafanaClient          *grafana.Client
 	grafanaResponseHeaders GrafanaResponseHeaders
@@ -128,6 +129,10 @@ func (s *Server) handleRoot() http.HandlerFunc {
 
 		// possible values of Login claim are checked in cli beforehand
 		login := getValidClaim(claims, s.grafanaClaimsConfig.Login)
+		// Fall back to sub when the configured login claim is empty (e.g. client credentials tokens have no email claim)
+		if login == "" {
+			login = claims.Subject
+		}
 		name := getValidClaim(claims, s.grafanaClaimsConfig.Name)
 		email := claims.Email
 
@@ -137,6 +142,9 @@ func (s *Server) handleRoot() http.HandlerFunc {
 		// validUserGroups represents the intersection of user groups from claim with the group
 		// mapping in configuration
 		validUserGroups := config.ValidUserGroups(claims.Groups, s.groups)
+		if len(validUserGroups) == 0 && s.defaultGroup != nil {
+			validUserGroups = config.Groups{"default_group": *s.defaultGroup}
+		}
 		log.Debugf("valid user groups for user %s: %v", login, validUserGroups)
 
 		orgUser, err := s.grafanaClient.GetOrCreateUser(login, name, email)

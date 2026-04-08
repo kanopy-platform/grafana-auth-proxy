@@ -62,3 +62,10 @@ func WithGrafanaClaimsConfig(config GrafanaClaimsConfig) ServerFuncOpt {
 		return nil
 	}
 }
+
+func WithDefaultGroup(group *config.Group) ServerFuncOpt {
+	return func(s *Server) error {
+		s.defaultGroup = group
+		return nil
+	}
+}
