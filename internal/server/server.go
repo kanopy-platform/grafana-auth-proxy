@@ -128,6 +128,10 @@ func (s *Server) handleRoot() http.HandlerFunc {
 
 		// possible values of Login claim are checked in cli beforehand
 		login := getValidClaim(claims, s.grafanaClaimsConfig.Login)
+		// Fall back to sub when the configured login claim is empty (e.g. client credentials tokens have no email claim)
+		if login == "" {
+			login = claims.Subject
+		}
 		name := getValidClaim(claims, s.grafanaClaimsConfig.Name)
 		email := claims.Email
 

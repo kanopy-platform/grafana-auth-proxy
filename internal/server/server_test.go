@@ -29,6 +29,16 @@ func newTestJWTToken(subject string) string {
 	return tokenString
 }
 
+// newServiceAccountJWTToken creates a JWT with only a sub claim, simulating a client credentials token.
+func newServiceAccountJWTToken(subject string) string {
+	cl := jwt.Claims{}
+	cl.Subject = subject
+
+	tokenString, _ := jwt.NewTestJWTWithClaims(cl)
+
+	return tokenString
+}
+
 func TestTokenValidations(t *testing.T) {
 	// the backendServer represents the Grafana server. In this case we are mocking the Grafana api calls
 	// so the backend server is only here to avoid the proxy to timeout
@@ -231,6 +241,43 @@ func TestHandleHealthz(t *testing.T) {
 	err = json.Unmarshal(buf.Bytes(), &got)
 	assert.NoError(t, err)
 	assert.Equal(t, want, got)
+}
+
+func TestSubLoginFallback(t *testing.T) {
+	t.Parallel()
+
+	backendServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = fmt.Fprintln(w, "Hello, client")
+	}))
+	defer backendServer.Close()
+	backendURL, _ := url.Parse(backendServer.URL)
+
+	// Mock client expects the sub value as the login identifier
+	client := grafana.NewMockClient(gapi.User{Login: "svc-account-sub", ID: 1}, map[int64]grafana.RoleType{})
+
+	server, err := New(
+		WithGrafanaProxyURL(backendURL),
+		WithCookieName("auth_token"),
+		WithConfigGroups(config.Groups{}),
+		WithGrafanaClient(client),
+		WithGrafanaResponseHeaders(GrafanaResponseHeaders{User: "X-WEBAUTH-USER"}),
+		// Default login claim is "email"; token has no email so sub should be used
+		WithGrafanaClaimsConfig(GrafanaClaimsConfig{Login: "email", Name: "sub"}),
+	)
+	assert.NoError(t, err)
+
+	req := httptest.NewRequest("GET", "/", nil)
+	req.Host = "http://grafana.example.com"
+	req.AddCookie(&http.Cookie{
+		Name:  "auth_token",
+		Value: newServiceAccountJWTToken("svc-account-sub"),
+	})
+
+	w := httptest.NewRecorder()
+	server.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "svc-account-sub", req.Header.Get("X-WEBAUTH-USER"))
 }
 
 func TestGetValidClaim(t *testing.T) {
