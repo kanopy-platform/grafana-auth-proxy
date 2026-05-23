@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"strings"
 
 	"github.com/kanopy-platform/grafana-auth-proxy/internal/jwt"
 	"github.com/kanopy-platform/grafana-auth-proxy/pkg/config"
@@ -26,7 +27,7 @@ type GrafanaClaimsConfig struct {
 type Server struct {
 	router                 *http.ServeMux
 	cookieName             string
-	headerName             string
+	headerNames            []string
 	groups                 config.Groups
 	grafanaProxyUrl        *url.URL
 	grafanaClient          *grafana.Client
@@ -83,6 +84,18 @@ func New(opts ...ServerFuncOpt) (http.Handler, error) {
 	return s.router, nil
 }
 
+// extractToken strips the Bearer auth scheme from a header value if present.
+// Matching is case-insensitive and surrounding whitespace is trimmed, so
+// "bearer <jwt>", "Bearer  <jwt>", and trailing spaces all work correctly.
+// A bare JWT is returned unchanged.
+func extractToken(v string) string {
+	v = strings.TrimSpace(v)
+	if len(v) > 7 && strings.EqualFold(v[:6], "bearer") && v[6] == ' ' {
+		return strings.TrimSpace(v[7:])
+	}
+	return v
+}
+
 func getValidClaim(claims *jwt.Claims, input string) string {
 	switch input {
 	case "sub":
@@ -98,11 +111,18 @@ func (s *Server) handleRoot() http.HandlerFunc {
 		// Get token
 		var token string
 
-		if s.headerName != "" {
-			token = r.Header.Get(s.headerName)
-			// replicate the cookie look up behavior for a missing header
+		if len(s.headerNames) > 0 {
+			// Try each configured header in order; use the first non-empty value.
+			// The "Bearer " prefix is stripped unconditionally so that both bare JWTs
+			// and standard Authorization headers work without additional configuration.
+			for _, h := range s.headerNames {
+				if v := r.Header.Get(h); v != "" {
+					token = extractToken(v)
+					break
+				}
+			}
 			if token == "" {
-				logAndError(w, http.StatusUnauthorized, fmt.Errorf("no value for header %s", s.headerName), "error reading header")
+				logAndError(w, http.StatusUnauthorized, fmt.Errorf("no value in any configured header: %v", s.headerNames), "error reading header")
 				return
 			}
 		} else {
@@ -170,7 +190,13 @@ func (s *Server) handleRoot() http.HandlerFunc {
 		r.Header.Set("X-Forwarded-Host", r.Host)
 		r.Header.Set(s.grafanaResponseHeaders.User, login)
 
-		// Remove the Authorization header as it's not needed anymore and will conflict with Grafana's API access
+		// Remove all configured auth headers — they have served their purpose and
+		// must not be forwarded to Grafana. Authorization is also removed
+		// unconditionally to cover the legacy single-header-name path and to
+		// prevent conflicts with Grafana's own API access.
+		for _, h := range s.headerNames {
+			r.Header.Del(h)
+		}
 		r.Header.Del("Authorization")
 
 		// Wrap the response writer to capture status code

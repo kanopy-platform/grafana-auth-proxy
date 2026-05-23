@@ -2,6 +2,7 @@ package server
 
 import (
 	"net/url"
+	"strings"
 
 	"github.com/kanopy-platform/grafana-auth-proxy/pkg/config"
 	"github.com/kanopy-platform/grafana-auth-proxy/pkg/grafana"
@@ -14,9 +15,32 @@ func WithCookieName(cookie string) ServerFuncOpt {
 	}
 }
 
+// WithHeaderName appends a single header name to the ordered list of headers
+// consulted when extracting a JWT token. It is kept for backwards compatibility;
+// prefer WithHeaderNames when configuring multiple headers.
 func WithHeaderName(header string) ServerFuncOpt {
 	return func(s *Server) error {
-		s.headerName = header
+		if header = strings.TrimSpace(header); header != "" {
+			s.headerNames = append(s.headerNames, header)
+		}
+		return nil
+	}
+}
+
+// WithHeaderNames sets (replaces) the ordered list of header names to consult
+// when extracting a JWT token. The first header that contains a non-empty value
+// is used; the Bearer scheme is stripped automatically so both bare-JWT headers
+// and standard Authorization headers work. Empty and whitespace-only entries
+// are silently dropped.
+func WithHeaderNames(headers []string) ServerFuncOpt {
+	return func(s *Server) error {
+		filtered := make([]string, 0, len(headers))
+		for _, h := range headers {
+			if h = strings.TrimSpace(h); h != "" {
+				filtered = append(filtered, h)
+			}
+		}
+		s.headerNames = filtered
 		return nil
 	}
 }
