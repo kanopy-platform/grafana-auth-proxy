@@ -35,7 +35,8 @@ func NewRootCommand() *cobra.Command {
 	cmd.PersistentFlags().String("grafana-proxy-url", "http://grafana.example.com", "Grafana url to proxy to")
 	cmd.PersistentFlags().String("grafana-user-header", "X-WEBAUTH-USER", "Header to containing the user to authenticate")
 	cmd.PersistentFlags().String("cookie-name", "auth_token", "Cookie name with jwt token. If set will take precedence over auth header")
-	cmd.PersistentFlags().String("header-name", "", "header name with jwt token. If set will take precedence over cookie-name")
+	cmd.PersistentFlags().String("header-name", "", "header name with jwt token. If set will take precedence over cookie-name. Deprecated: use header-names instead")
+	cmd.PersistentFlags().StringSlice("header-names", []string{}, "ordered list of header names to check for a jwt token (first non-empty wins). Takes precedence over header-name. The 'Bearer ' prefix is stripped automatically.")
 	cmd.PersistentFlags().String("admin-user", "admin", "Admin user")
 	cmd.PersistentFlags().String("admin-password", "", "Admin password")
 	cmd.PersistentFlags().String("jwt-claim-login", "email", "JWT claim to be used as user Login in Grafana. Valid values are 'email' or 'sub'. Falls back to 'sub' if the configured claim is empty.")
@@ -78,6 +79,23 @@ func (c *RootCommand) persistentPreRunE(cmd *cobra.Command, args []string) error
 	return nil
 }
 
+// normalizeHeaderNames trims whitespace, drops empty entries, and splits any
+// comma-separated values. This ensures both YAML lists and env vars like
+// APP_HEADER_NAMES=X-Test-Header,Authorization are handled correctly,
+// since Viper's GetStringSlice passes env var strings through as a single element.
+func normalizeHeaderNames(headers []string) []string {
+	var out []string
+	for _, h := range headers {
+		for part := range strings.SplitSeq(h, ",") {
+			part = strings.TrimSpace(part)
+			if part != "" {
+				out = append(out, part)
+			}
+		}
+	}
+	return out
+}
+
 func defaultServerOptions() []server.ServerFuncOpt {
 	responseHeaders := server.GrafanaResponseHeaders{
 		User: viper.GetString("grafana-user-header"),
@@ -85,9 +103,17 @@ func defaultServerOptions() []server.ServerFuncOpt {
 
 	opts := []server.ServerFuncOpt{
 		server.WithCookieName(viper.GetString("cookie-name")),
-		server.WithHeaderName(viper.GetString("header-name")),
-		server.WithGrafanaResponseHeaders(responseHeaders),
 	}
+
+	// header-names takes precedence; fall back to the singular header-name for
+	// backwards compatibility with existing deployments.
+	if headerNames := normalizeHeaderNames(viper.GetStringSlice("header-names")); len(headerNames) > 0 {
+		opts = append(opts, server.WithHeaderNames(headerNames))
+	} else if headerName := viper.GetString("header-name"); headerName != "" {
+		opts = append(opts, server.WithHeaderName(headerName))
+	}
+
+	opts = append(opts, server.WithGrafanaResponseHeaders(responseHeaders))
 
 	return opts
 }

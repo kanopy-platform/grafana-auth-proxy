@@ -163,6 +163,177 @@ func TestTokenValidations(t *testing.T) {
 	}
 }
 
+func TestMultiHeaderNames(t *testing.T) {
+	backendServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = fmt.Fprintln(w, "Hello, client")
+	}))
+	defer backendServer.Close()
+	backendURL, _ := url.Parse(backendServer.URL)
+
+	aliceToken := newTestJWTToken("alice")
+	bobToken := newTestJWTToken("bob")
+	invalidToken := "this-is-no-valid-jwt"
+
+	clientAlice := grafana.NewMockClient(gapi.User{Login: "alice", ID: 1}, map[int64]grafana.RoleType{})
+	clientBob := grafana.NewMockClient(gapi.User{Login: "bob", ID: 2}, map[int64]grafana.RoleType{})
+
+	baseOpts := func(client *grafana.Client) []ServerFuncOpt {
+		return []ServerFuncOpt{
+			WithGrafanaProxyURL(backendURL),
+			WithConfigGroups(config.Groups{}),
+			WithGrafanaClient(client),
+			WithGrafanaResponseHeaders(GrafanaResponseHeaders{User: "X-WEBAUTH-USER"}),
+			WithHeaderNames([]string{"X-Test-Header", "Authorization"}),
+		}
+	}
+
+	t.Run("first header present and valid — identity from first token", func(t *testing.T) {
+		req := httptest.NewRequest("GET", "/", nil)
+		req.Header.Set("X-Test-Header", aliceToken)
+		s, err := New(baseOpts(clientAlice)...)
+		assert.NoError(t, err)
+		w := httptest.NewRecorder()
+		s.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusOK, w.Code)
+		assert.Equal(t, "alice", req.Header.Get("X-WEBAUTH-USER"))
+	})
+
+	t.Run("second header present and valid bare JWT — identity from second token", func(t *testing.T) {
+		req := httptest.NewRequest("GET", "/", nil)
+		req.Header.Set("Authorization", bobToken)
+		s, err := New(baseOpts(clientBob)...)
+		assert.NoError(t, err)
+		w := httptest.NewRecorder()
+		s.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusOK, w.Code)
+		assert.Equal(t, "bob", req.Header.Get("X-WEBAUTH-USER"))
+	})
+
+	t.Run("second header with Bearer prefix stripped — identity from second token", func(t *testing.T) {
+		req := httptest.NewRequest("GET", "/", nil)
+		req.Header.Set("Authorization", "Bearer "+bobToken)
+		s, err := New(baseOpts(clientBob)...)
+		assert.NoError(t, err)
+		w := httptest.NewRecorder()
+		s.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusOK, w.Code)
+		assert.Equal(t, "bob", req.Header.Get("X-WEBAUTH-USER"))
+	})
+
+	t.Run("lowercase bearer prefix stripped — identity from second token", func(t *testing.T) {
+		req := httptest.NewRequest("GET", "/", nil)
+		req.Header.Set("Authorization", "bearer "+bobToken)
+		s, err := New(baseOpts(clientBob)...)
+		assert.NoError(t, err)
+		w := httptest.NewRecorder()
+		s.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusOK, w.Code)
+		assert.Equal(t, "bob", req.Header.Get("X-WEBAUTH-USER"))
+	})
+
+	t.Run("first header wins when both present — identity is first token's subject", func(t *testing.T) {
+		// alice in first header, bob (with Bearer) in second: alice must win.
+		req := httptest.NewRequest("GET", "/", nil)
+		req.Header.Set("X-Test-Header", aliceToken)
+		req.Header.Set("Authorization", "Bearer "+bobToken)
+		s, err := New(baseOpts(clientAlice)...)
+		assert.NoError(t, err)
+		w := httptest.NewRecorder()
+		s.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusOK, w.Code)
+		assert.Equal(t, "alice", req.Header.Get("X-WEBAUTH-USER"))
+	})
+
+	t.Run("first header present but invalid does not fall through to second header", func(t *testing.T) {
+		// Priority is positional: first non-empty header value is used even if the JWT is invalid.
+		// This prevents an attacker supplying a valid Authorization header from bypassing a
+		// rejected, alternative token.
+		req := httptest.NewRequest("GET", "/", nil)
+		req.Header.Set("X-Test-Header", invalidToken)
+		req.Header.Set("Authorization", "Bearer "+aliceToken)
+		s, err := New(baseOpts(clientAlice)...)
+		assert.NoError(t, err)
+		w := httptest.NewRecorder()
+		s.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusUnauthorized, w.Code)
+	})
+
+	t.Run("no configured headers present returns unauthorized", func(t *testing.T) {
+		req := httptest.NewRequest("GET", "/", nil)
+		s, err := New(baseOpts(clientAlice)...)
+		assert.NoError(t, err)
+		w := httptest.NewRecorder()
+		s.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusUnauthorized, w.Code)
+	})
+
+	t.Run("bare JWT header has no Bearer prefix — extractToken is a no-op", func(t *testing.T) {
+		req := httptest.NewRequest("GET", "/", nil)
+		req.Header.Set("X-Test-Header", aliceToken)
+		s, err := New(baseOpts(clientAlice)...)
+		assert.NoError(t, err)
+		w := httptest.NewRecorder()
+		s.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusOK, w.Code)
+		assert.Equal(t, "alice", req.Header.Get("X-WEBAUTH-USER"))
+	})
+
+	t.Run("configured auth headers are removed before proxying", func(t *testing.T) {
+		req := httptest.NewRequest("GET", "/", nil)
+		req.Header.Set("X-Test-Header", aliceToken)
+		req.Header.Set("Authorization", "Bearer "+bobToken)
+		s, err := New(baseOpts(clientAlice)...)
+		assert.NoError(t, err)
+		w := httptest.NewRecorder()
+		s.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusOK, w.Code)
+		assert.Equal(t, "", req.Header.Get("X-Test-Header"), "X-Test-Header should be removed before proxying")
+		assert.Equal(t, "", req.Header.Get("Authorization"), "Authorization should be removed before proxying")
+	})
+
+	t.Run("empty entries in WithHeaderNames do not disable cookie fallback", func(t *testing.T) {
+		// WithHeaderNames([]string{""}) should produce an empty headerNames slice,
+		// so the server falls back to cookies as if no headers were configured.
+		req := httptest.NewRequest("GET", "/", nil)
+		req.AddCookie(&http.Cookie{Name: "auth_token", Value: aliceToken})
+		s, err := New(
+			WithGrafanaProxyURL(backendURL),
+			WithConfigGroups(config.Groups{}),
+			WithGrafanaClient(clientAlice),
+			WithGrafanaResponseHeaders(GrafanaResponseHeaders{User: "X-WEBAUTH-USER"}),
+			WithCookieName("auth_token"),
+			WithHeaderNames([]string{"", "  ", ""}), // all empty/whitespace — should be filtered
+		)
+		assert.NoError(t, err)
+		w := httptest.NewRecorder()
+		s.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusOK, w.Code)
+		assert.Equal(t, "alice", req.Header.Get("X-WEBAUTH-USER"))
+	})
+}
+
+func TestExtractToken(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{"bare JWT unchanged", "eyJhbGc.eyJzdW.sig", "eyJhbGc.eyJzdW.sig"},
+		{"Bearer prefix stripped", "Bearer eyJhbGc.eyJzdW.sig", "eyJhbGc.eyJzdW.sig"},
+		{"lowercase bearer stripped", "bearer eyJhbGc.eyJzdW.sig", "eyJhbGc.eyJzdW.sig"},
+		{"mixed case Bearer stripped", "BEARER eyJhbGc.eyJzdW.sig", "eyJhbGc.eyJzdW.sig"},
+		{"extra space after Bearer stripped", "Bearer  eyJhbGc.eyJzdW.sig", "eyJhbGc.eyJzdW.sig"},
+		{"leading/trailing whitespace trimmed", "  Bearer eyJhbGc.eyJzdW.sig  ", "eyJhbGc.eyJzdW.sig"},
+		{"bare JWT with surrounding whitespace trimmed", "  eyJhbGc.eyJzdW.sig  ", "eyJhbGc.eyJzdW.sig"},
+		{"Basic scheme not stripped", "Basic dXNlcjpwYXNz", "Basic dXNlcjpwYXNz"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.expected, extractToken(tt.input))
+		})
+	}
+}
+
 func TestHandleRoot(t *testing.T) {
 	t.Parallel()
 
